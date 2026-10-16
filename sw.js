@@ -1,4 +1,4 @@
-const CACHE = 'rsl-v1.1.4';
+const CACHE = 'rsl-v1.1.5';
 const ASSETS = ['./', './index.html', './style.css', './manifest.json', './assets/icon.svg', './assets/icon-192.png', './assets/icon-512.png',
   './src/main.js', './src/game.js', './src/ai.js', './src/render.js', './src/sprites.js', './src/input.js', './src/ui.js', './src/audio.js', './src/map.js', './src/pathfinding.js', './src/entities.js', './src/data.js', './src/util.js', './src/i18n.js', './src/assets.js', './src/lights.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
