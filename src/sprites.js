@@ -3,10 +3,10 @@
 //  trees, resource nodes and UI icons.  Everything is drawn once and
 //  cached as offscreen canvases.
 // =====================================================================
-import { TW, TH, HW, HH, makeCanvas, shade, rgba, mixHex, RNG } from './util.js';
+import { TW, TH, HW, HH, makeCanvas, shade, rgba, mixHex, RNG, clamp } from './util.js';
 import { UNITS, BUILDING_ROLES } from './data.js';
 
-export const S = 2;                       // supersampling factor for units
+export const S = 3;                       // supersampling factor for units
 const cache = new Map();
 export function cached(key, w, h, fn) {
   let c = cache.get(key);
@@ -142,15 +142,24 @@ function drawHumanoid(ctx, p, view, ph, def, opts = {}) {
   ctx.quadraticCurveTo(0, torsoTop - 0.8, -bw, torsoTop + 1); ctx.closePath();
   const tg = ctx.createLinearGradient(-bw, 0, bw, 0); tg.addColorStop(0, shade(tunic, 0.18)); tg.addColorStop(0.6, tunic); tg.addColorStop(1, shade(tunic, -0.35));
   ctx.fillStyle = tg; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.stroke();
-  // belt
-  line(ctx, -bw + 0.8, hip - 1.2, bw - 0.8, hip - 1.2, shade(pants, -0.5), 1.2);
+  // cloth folds & highlight
+  ctx.strokeStyle = rgba('#000', 0.18); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-1.5, torsoTop + 3); ctx.quadraticCurveTo(-2.2, hip - 4, -1, hip - 1); ctx.moveTo(1.8, torsoTop + 4); ctx.quadraticCurveTo(2.6, hip - 4, 1.6, hip - 1); ctx.stroke();
+  ctx.strokeStyle = rgba('#fff', 0.14); ctx.beginPath(); ctx.moveTo(-bw + 1.2, torsoTop + 2.5); ctx.lineTo(-bw + 1.6, hip - 2); ctx.stroke();
+  // quiver on the back for archers
+  if (p.weapon === 'bow') { ctx.save(); ctx.translate(front ? -bw + 0.5 : bw - 0.5, torsoTop + 3); ctx.rotate(front ? 0.5 : -0.5); rrect(ctx, -1.6, -3, 3.2, 10, 1.2, '#6b4a2a', OUT, 0.5); for (let i = -1; i <= 1; i++) line(ctx, i * 0.9, -3, i * 0.9 + 0.3, -7, '#d8c8a0', 0.6); for (let i = -1; i <= 1; i++) poly(ctx, [[i * 0.9 - 0.7, -6.3], [i * 0.9 + 0.3, -7.5], [i * 0.9 + 0.9, -6]], i % 2 ? '#e05040' : '#f0f0f0'); ctx.restore(); }
+  // belt + buckle
+  line(ctx, -bw + 0.8, hip - 1.2, bw - 0.8, hip - 1.2, shade(pants, -0.5), 1.3);
+  rrect(ctx, -1, hip - 2, 2, 1.8, 0.4, def.faction === 'elves' ? '#d9b857' : '#8a8a8a', OUT, 0.3);
   // armor plate
   if (p.armorColor) {
     ctx.beginPath(); ctx.moveTo(-bw + 0.8, torsoTop + 2); ctx.lineTo(bw - 0.8, torsoTop + 2); ctx.lineTo(bw - 1.6, hip - 2); ctx.lineTo(-bw + 1.6, hip - 2); ctx.closePath();
     const ag = ctx.createLinearGradient(-bw, torsoTop, bw, hip); ag.addColorStop(0, shade(p.armorColor, 0.35)); ag.addColorStop(0.5, p.armorColor); ag.addColorStop(1, shade(p.armorColor, -0.4));
     ctx.fillStyle = ag; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.5; ctx.stroke();
+    // pauldrons
+    for (const sgn of [-1, 1]) ell(ctx, sgn * (bw - 0.3), torsoTop + 2.2, 2.2, 1.5, shade(p.armorColor, sgn < 0 ? 0.25 : -0.2), OUT, 0.5);
     if (def.faction === 'elves') { // leaf motif
       ctx.strokeStyle = rgba('#d9b857', 0.9); ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(0, torsoTop + 3); ctx.lineTo(0, hip - 3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, torsoTop + 4); ctx.quadraticCurveTo(2, torsoTop + 6, 0, torsoTop + 9); ctx.quadraticCurveTo(-2, torsoTop + 6, 0, torsoTop + 4); ctx.stroke();
     } else if (bulky) { // rivets
       ctx.fillStyle = '#9a9a9a'; for (const [rx, ry] of [[-2.5, torsoTop + 4], [2.5, torsoTop + 4], [-2.2, hip - 4], [2.2, hip - 4]]) { ctx.beginPath(); ctx.arc(rx, ry, 0.55, 0, 7); ctx.fill(); }
     }
@@ -242,7 +251,12 @@ function drawHead(ctx, p, hy, r, front, def) {
     ctx.fillStyle = grot || !elf ? '#f0d040' : '#2a3a5a';
     if (!elf) ctx.fillStyle = '#e8c040';
     ctx.beginPath(); ctx.arc(-1.1, hy - 0.3, elf ? 0.45 : 0.6, 0, 7); ctx.arc(1.1, hy - 0.3, elf ? 0.45 : 0.6, 0, 7); ctx.fill();
-    if (!elf) { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-1.1, hy - 0.3, 0.25, 0, 7); ctx.arc(1.1, hy - 0.3, 0.25, 0, 7); ctx.fill(); }
+    if (!elf) { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-1.1, hy - 0.3, 0.25, 0, 7); ctx.arc(1.1, hy - 0.3, 0.25, 0, 7); ctx.fill();
+      // heavy brow, nose and a scar
+      line(ctx, -2.2, hy - 1.3, -0.3, hy - 1.0, shade(skin, -0.5), 0.8); line(ctx, 0.3, hy - 1.0, 2.2, hy - 1.3, shade(skin, -0.5), 0.8);
+      ell(ctx, 0, hy + 0.6, 0.9, 0.6, shade(skin, -0.25));
+      if (!grot) line(ctx, 1.6, hy - 2.2, 2.4, hy + 0.4, '#5a2a2a', 0.5);
+    } else { ctx.strokeStyle = shade(skin, -0.45); ctx.lineWidth = 0.45; ctx.beginPath(); ctx.moveTo(-1.8, hy - 1.2); ctx.lineTo(-0.5, hy - 1.4); ctx.moveTo(0.5, hy - 1.4); ctx.lineTo(1.8, hy - 1.2); ctx.moveTo(0, hy - 0.3); ctx.lineTo(0.3, hy + 0.8); ctx.stroke(); }
     // mouth / tusks
     if (!elf) {
       line(ctx, -1.4, hy + 1.6, 1.4, hy + 1.6, '#3a1a1a', 0.7);
@@ -342,13 +356,16 @@ function drawMount(ctx, m, view, ph, riderless = false) {
     ctx.strokeStyle = cols.mane; ctx.lineWidth = 0.8; for (let i = -5; i <= 5; i += 2) line(ctx, i, bodyY - tall + 0.5, i - 0.8, bodyY - tall - 2, cols.mane, 0.8);
   }
   if (m === 'warg') { ctx.fillStyle = cols.mane; ctx.beginPath(); ctx.ellipse(0, bodyY - tall + 1.2, long * 0.7, 1.6, 0, Math.PI, 7); ctx.fill(); }
-  // saddle cloth
-  if (!riderless) { rrect(ctx, -4.5, bodyY - tall + 0.5, 8, tall + 2, 1.5, m === 'boar' || m === 'warg' ? '#5a1f1f' : (m === 'greatstag' ? '#c9a74a' : '#2f5d3a'), OUT, 0.5); }
+  // saddle cloth with trim
+  if (!riderless) { const sc = m === 'boar' || m === 'warg' ? '#5a1f1f' : (m === 'greatstag' ? '#c9a74a' : '#2f5d3a'); rrect(ctx, -4.5, bodyY - tall + 0.5, 8, tall + 2, 1.5, sc, OUT, 0.5); rrect(ctx, -3.5, bodyY - tall + 1.5, 6, tall, 1, null, m === 'boar' || m === 'warg' ? '#8a8a8a' : '#d9b857', 0.5); line(ctx, -4.5, bodyY + 1, -4.8, bodyY + 4, '#3a2a1a', 1); }
+  // belly shading
+  ell(ctx, 0, bodyY + tall * 0.55, long * 0.75, tall * 0.35, 'rgba(0,0,0,0.18)');
   // neck + head
   const nx = long - 1.5, ny = bodyY - tall + 1;
   const hx = long + (m === 'boar' ? 3.5 : 4.5), hy = m === 'boar' ? bodyY - 1 : m === 'warg' ? bodyY - 4.5 : bodyY - 8.5;
   ctx.beginPath(); ctx.moveTo(nx - 2, ny + 3); ctx.lineTo(hx - 1.5, hy + 1.5); ctx.lineTo(hx + 0.5, hy + 3.5); ctx.lineTo(nx + 1.5, ny + 5); ctx.closePath(); ctx.fillStyle = cols.body; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.stroke();
-  if (m === 'horse' || m === 'stag' || m === 'greatstag') { ctx.strokeStyle = cols.mane; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(nx - 1.5, ny + 1.5); ctx.lineTo(hx - 2.2, hy + 0.5); ctx.stroke(); }
+  if (m === 'horse' || m === 'stag' || m === 'greatstag') { ctx.strokeStyle = cols.mane; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(nx - 1.5, ny + 1.5); ctx.lineTo(hx - 2.2, hy + 0.5); ctx.stroke(); ctx.lineWidth = 0.7; for (let i = 0; i < 4; i++) { const t = i / 4; const x = nx - 1.5 + (hx - 2.2 - nx + 1.5) * t, y = ny + 1.5 + (hy + 0.5 - ny - 1.5) * t; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + 2.5); ctx.stroke(); } }
+  if (!riderless) { ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-1, bodyY - tall - 2); ctx.quadraticCurveTo(hx - 3, hy + 3, hx + 1, hy + 1.5); ctx.stroke(); }
   // head shape
   if (m === 'boar') {
     ell(ctx, hx, hy, 3.4, 2.6, cols.body, OUT, 0.7); ell(ctx, hx + 2.8, hy + 1, 1.3, 1, '#2a1a12');
@@ -397,9 +414,19 @@ function drawGiant(ctx, p, view, ph, def) {
     for (const [a, b] of [[-2, -18], [2.5, -12], [1, -20]]) line(ctx, a, b, a * 1.5, b - 2, '#bbb', 1);
     ctx.restore();
     // head
-    ell(ctx, 0, -33, 4.5, 4, shade(skin, 0.05), OUT, 0.8);
-    if (front) { ctx.fillStyle = '#e8c040'; ctx.beginPath(); ctx.arc(-1.6, -33.5, 0.8, 0, 7); ctx.arc(1.6, -33.5, 0.8, 0, 7); ctx.fill(); ctx.fillStyle = '#f0e8d0'; poly(ctx, [[-2.2, -30.5], [-2.8, -28], [-1.4, -30.5]], '#f0e8d0'); poly(ctx, [[2.2, -30.5], [2.8, -28], [1.4, -30.5]], '#f0e8d0'); line(ctx, -2.5, -30.5, 2.5, -30.5, '#2a1a1a', 0.8); }
-    poly(ctx, [[-4.5, -33], [-7, -35.5], [-4, -31.5]], skin, OUT, 0.5); poly(ctx, [[4.5, -33], [7, -35.5], [4, -31.5]], skin, OUT, 0.5);
+    const hg2 = ctx.createRadialGradient(-1.5, -35, 1, 0, -33, 6); hg2.addColorStop(0, shade(skin, 0.25)); hg2.addColorStop(1, shade(skin, -0.25));
+    ell(ctx, 0, -33, 4.8, 4.2, hg2, OUT, 0.8);
+    poly(ctx, [[-4.5, -33], [-7.5, -36], [-4, -31.5]], skin, OUT, 0.5); poly(ctx, [[4.5, -33], [7.5, -36], [4, -31.5]], skin, OUT, 0.5);
+    // warts
+    ctx.fillStyle = shade(skin, -0.35); for (const [wx, wy] of [[-2.5, -36], [3, -35.5], [1, -37.5], [-6, -20], [7, -24]]) { ctx.beginPath(); ctx.arc(wx, wy, 0.7, 0, 7); ctx.fill(); }
+    if (front) {
+      ctx.fillStyle = '#e8c040'; ctx.beginPath(); ctx.arc(-1.7, -33.8, 0.9, 0, 7); ctx.arc(1.7, -33.8, 0.9, 0, 7); ctx.fill(); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-1.7, -33.8, 0.4, 0, 7); ctx.arc(1.7, -33.8, 0.4, 0, 7); ctx.fill();
+      line(ctx, -3, -35.3, -0.6, -34.8, shade(skin, -0.5), 1); line(ctx, 0.6, -34.8, 3, -35.3, shade(skin, -0.5), 1);
+      ell(ctx, 0, -32, 1.4, 1, shade(skin, -0.3));
+      line(ctx, -2.8, -30.2, 2.8, -30.2, '#2a1a1a', 1);
+      ctx.fillStyle = '#f0e8d0'; poly(ctx, [[-2.4, -30.4], [-3, -27.6], [-1.5, -30.4]], '#f0e8d0'); poly(ctx, [[2.4, -30.4], [3, -27.6], [1.5, -30.4]], '#f0e8d0');
+    } else { line(ctx, -3, -36, 3, -36, shade(skin, -0.3), 1); }
+    ell(ctx, 0, -17.5, 1, 0.8, shade(skin, -0.35));
     ctx.restore();
   } else { // treekin
     const bark = '#5a4632', barkD = '#2e2218', leaf = '#4f8f3a';
@@ -466,58 +493,117 @@ function drawBeast(ctx, p, view, ph, def) {
 //  TREES & RESOURCE NODES   (anchor: bottom-centre = tile centre)
 // ---------------------------------------------------------------------
 export const TREE_W = 72, TREE_H = 96, TREE_ANCHOR_Y = 86;
+export const TREE_VARIANTS = 8;
 export function treeSprite(style, variant) {
-  const key = `tree|${style}|${variant}`;
+  const v = variant % TREE_VARIANTS;
+  const key = `tree|${style}|${v}`;
   return cached(key, TREE_W * 1.5, TREE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5);
     ctx.translate(TREE_W / 2, TREE_ANCHOR_Y);
-    const rng = new RNG(variant * 977 + style.length * 31);
+    const rng = new RNG(v * 977 + style.length * 31 + 5);
     drawTree(ctx, style, rng);
   });
 }
+export function treeStyle(biome, variant = 0) { return biome < 0.33 ? 'mallorn' : biome < 0.62 ? ((variant % 3 === 0) ? 'pine' : 'oak') : 'blight'; }
+
+// leafy canopy: silhouette of blobs filled with many small shaded leaf clusters
+function leafCanopy(ctx, blobs, pal, rng, opts = {}) {
+  const [dark, mid, light, extra] = pal;
+  const density = opts.density ?? 1;
+  // dark silhouette
+  ctx.fillStyle = dark;
+  for (const [cx, cy, r] of blobs) { ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.9, 0, 0, 7); ctx.fill(); }
+  // leaf clusters
+  for (const [cx, cy, r] of blobs) {
+    const n = Math.round(r * r * 0.22 * density);
+    for (let i = 0; i < n; i++) {
+      const a = rng.next() * Math.PI * 2, d = Math.sqrt(rng.next()) * r * 0.95;
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * 0.9;
+      // lighting: top-left light
+      const lit = clamp01(0.5 - (x - cx) / r * 0.35 - (y - cy) / r * 0.55 + rng.range(-0.15, 0.15));
+      const col = lit > 0.72 ? light : lit > 0.35 ? mid : dark;
+      ctx.fillStyle = extra && rng.next() < 0.12 ? extra : col;
+      const lr = 1.6 + rng.next() * 1.8;
+      ctx.beginPath(); ctx.ellipse(x, y, lr, lr * 0.75, rng.next() * 3, 0, 7); ctx.fill();
+    }
+  }
+  // rim highlight on the lit edge
+  ctx.strokeStyle = rgba(light, 0.35); ctx.lineWidth = 1.2;
+  for (const [cx, cy, r] of blobs) { ctx.beginPath(); ctx.ellipse(cx - 1, cy - 1, r * 0.9, r * 0.8, 0, Math.PI * 1.05, Math.PI * 1.7); ctx.stroke(); }
+  if (opts.specks) { ctx.fillStyle = opts.specks; for (let i = 0; i < 7; i++) { const [cx, cy, r] = blobs[rng.int(0, blobs.length - 1)]; const a = rng.next() * 7; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.7, cy + Math.sin(a) * r * 0.6, 0.8, 0, 7); ctx.fill(); } }
+}
+function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+function trunkShape(ctx, pts, color, dark, light) {
+  // pts: polygon outline (bottom-left .. top .. bottom-right)
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath();
+  const g = ctx.createLinearGradient(-5, 0, 5, 0); g.addColorStop(0, light); g.addColorStop(0.45, color); g.addColorStop(1, dark);
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(30,20,10,0.75)'; ctx.lineWidth = 0.7; ctx.stroke();
+}
 function drawTree(ctx, style, rng) {
-  const sz = rng.range(0.85, 1.15);
+  const sz = rng.range(0.85, 1.15), lean = rng.range(-2, 2);
+  // ground shadow
+  ctx.save(); ctx.globalCompositeOperation = 'destination-over'; ctx.restore();
+  const shadowG = ctx.createRadialGradient(2, 1, 1, 2, 1, 11 * sz); shadowG.addColorStop(0, 'rgba(0,0,0,0.35)'); shadowG.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = shadowG; ctx.beginPath(); ctx.ellipse(2, 1, 11 * sz, 4.5 * sz, 0, 0, 7); ctx.fill();
   if (style === 'mallorn') {
-    const trunk = '#c8c2b4', leafA = '#d9b857', leafB = '#a8c45a', leafC = '#f0d98a';
-    ctx.beginPath(); ctx.moveTo(-3.2 * sz, 0); ctx.quadraticCurveTo(-2.5 * sz, -18 * sz, -1.5 * sz, -30 * sz); ctx.lineTo(1.5 * sz, -30 * sz); ctx.quadraticCurveTo(2.5 * sz, -18 * sz, 3.2 * sz, 0); ctx.closePath();
-    ctx.fillStyle = vgrad(ctx, 0, -30, 0, shade(trunk, 0.1), shade(trunk, -0.35)); ctx.fill(); ctx.strokeStyle = 'rgba(40,30,20,.7)'; ctx.lineWidth = 0.7; ctx.stroke();
-    for (const [bx, by, ex, ey] of [[-1, -24, -9, -34], [1, -26, 8, -36], [0, -29, -3, -40]]) { line(ctx, bx * sz, by * sz, ex * sz, ey * sz, trunk, 1.6); }
-    const blobs = [[-9, -38, 9], [8, -40, 9.5], [0, -46, 10], [-4, -34, 7], [5, -33, 7], [0, -39, 8]];
-    for (const [cx, cy, r] of blobs) {
-      const g = ctx.createRadialGradient((cx - r * 0.3) * sz, (cy - r * 0.4) * sz, 1, cx * sz, cy * sz, r * sz);
-      g.addColorStop(0, leafC); g.addColorStop(0.5, leafA); g.addColorStop(1, shade(leafB, -0.35));
-      ell(ctx, cx * sz, cy * sz, r * sz, r * 0.9 * sz, g, 'rgba(60,50,20,.55)', 0.6);
-    }
-    ctx.fillStyle = rgba('#fff8d0', 0.9); for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(rng.range(-14, 14) * sz, rng.range(-50, -32) * sz, 0.8, 0, 7); ctx.fill(); }
+    const trunk = '#cfc9bb', tD = '#8e887a', tL = '#f2eee4';
+    // roots
+    ctx.strokeStyle = tD; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    for (const [dx, dy] of [[-6, 1], [-3, 2.5], [4, 2], [7, 0.5]]) { ctx.beginPath(); ctx.moveTo(dx * 0.4, -3); ctx.quadraticCurveTo(dx * 0.8, 0, dx * sz, dy); ctx.stroke(); }
+    trunkShape(ctx, [[-3.4 * sz, 0], [-2.4 * sz, -14 * sz], [-1.6 * sz + lean, -32 * sz], [1.6 * sz + lean, -32 * sz], [2.4 * sz, -14 * sz], [3.4 * sz, 0]], trunk, tD, tL);
+    // bark marks
+    ctx.strokeStyle = 'rgba(90,80,70,0.35)'; ctx.lineWidth = 0.6; for (let i = 0; i < 4; i++) { const y = -4 - i * 7 * sz; ctx.beginPath(); ctx.moveTo(-1.5 + (i % 2), y); ctx.quadraticCurveTo(0.5, y - 2, 1.5 - (i % 2), y - 4); ctx.stroke(); }
+    // branches
+    ctx.strokeStyle = trunk; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    for (const [bx, by, ex, ey] of [[-1, -24, -11, -34], [1, -27, 9, -37], [0, -30, -3, -41]]) { ctx.beginPath(); ctx.moveTo(bx * sz + lean * 0.7, by * sz); ctx.quadraticCurveTo((bx + ex) / 2 * sz + lean, (by + ey) / 2 * sz - 2, ex * sz + lean, ey * sz); ctx.stroke(); }
+    const blobs = [[-10 + lean, -38, 9.5], [9 + lean, -40, 10], [0 + lean, -47, 10.5], [-4 + lean, -34, 7.5], [5 + lean, -33, 7.5], [0 + lean, -40, 9]].map(([x, y, r]) => [x * sz, y * sz, r * sz]);
+    leafCanopy(ctx, blobs, ['#8a7626', '#d9b857', '#f5e6a0', '#a8b84a'], rng, { specks: 'rgba(255,250,220,0.95)' });
   } else if (style === 'oak') {
-    const trunk = '#5a3f28', leafA = '#4f8a3a', leafB = '#2e5a24', leafC = '#8cc060';
-    ctx.beginPath(); ctx.moveTo(-3.5 * sz, 0); ctx.quadraticCurveTo(-2.2 * sz, -14 * sz, -1.8 * sz, -22 * sz); ctx.lineTo(1.8 * sz, -22 * sz); ctx.quadraticCurveTo(2.2 * sz, -14 * sz, 3.5 * sz, 0); ctx.closePath();
-    ctx.fillStyle = vgrad(ctx, 0, -22, 0, shade(trunk, 0.15), shade(trunk, -0.4)); ctx.fill(); ctx.strokeStyle = 'rgba(30,20,10,.8)'; ctx.lineWidth = 0.7; ctx.stroke();
-    const blobs = [[-8, -28, 8.5], [8, -29, 8.5], [0, -36, 9.5], [-3, -25, 6.5], [4, -24, 6.5]];
-    for (const [cx, cy, r] of blobs) {
-      const g = ctx.createRadialGradient((cx - r * 0.35) * sz, (cy - r * 0.4) * sz, 1, cx * sz, cy * sz, r * sz);
-      g.addColorStop(0, leafC); g.addColorStop(0.55, leafA); g.addColorStop(1, leafB);
-      ell(ctx, cx * sz, cy * sz, r * sz, r * 0.85 * sz, g, 'rgba(20,40,15,.6)', 0.6);
+    const trunk = '#6a4a2e', tD = '#3a2814', tL = '#9a7a55';
+    ctx.strokeStyle = tD; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+    for (const [dx, dy] of [[-6, 1], [-2, 2.5], [5, 2], [7, 0]]) { ctx.beginPath(); ctx.moveTo(dx * 0.4, -3); ctx.quadraticCurveTo(dx * 0.8, 0, dx * sz, dy); ctx.stroke(); }
+    trunkShape(ctx, [[-4 * sz, 0], [-2.6 * sz, -12 * sz], [-2 * sz + lean, -23 * sz], [2 * sz + lean, -23 * sz], [2.6 * sz, -12 * sz], [4 * sz, 0]], trunk, tD, tL);
+    ctx.strokeStyle = 'rgba(30,20,10,0.4)'; ctx.lineWidth = 0.7; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-1.5 + i * 1.3, -2); ctx.quadraticCurveTo(-1 + i * 1.3, -10, -0.5 + i * 1.3 + lean * 0.5, -20); ctx.stroke(); }
+    ctx.strokeStyle = trunk; ctx.lineWidth = 2; for (const [bx, by, ex, ey] of [[-1, -18, -9, -27], [1, -20, 8, -28]]) { ctx.beginPath(); ctx.moveTo(bx * sz + lean * 0.6, by * sz); ctx.quadraticCurveTo((bx + ex) / 2 * sz + lean, (by + ey) / 2 * sz, ex * sz + lean, ey * sz); ctx.stroke(); }
+    const blobs = [[-9 + lean, -29, 9], [9 + lean, -30, 9], [0 + lean, -37, 10], [-3 + lean, -26, 7], [5 + lean, -25, 7], [0 + lean, -30, 8]].map(([x, y, r]) => [x * sz, y * sz, r * sz]);
+    leafCanopy(ctx, blobs, ['#22451c', '#4f8a3a', '#9ccf63', '#6aa040'], rng);
+  } else if (style === 'pine') {
+    const trunk = '#5a3f2a', tD = '#2e1e10', tL = '#8a6a48';
+    trunkShape(ctx, [[-2.6 * sz, 0], [-1.6 * sz, -20 * sz], [-0.8 * sz + lean, -44 * sz], [0.8 * sz + lean, -44 * sz], [1.6 * sz, -20 * sz], [2.6 * sz, 0]], trunk, tD, tL);
+    const tiers = [[-10, 20, 16], [-22, 16, 14], [-33, 12, 12], [-42, 8, 10]];
+    for (let t = 0; t < tiers.length; t++) {
+      const [ty, hw, hh] = tiers[t]; const y = ty * sz, w = hw * sz, h = hh * sz, lx = lean * (t / 3);
+      // jagged needle tier
+      ctx.beginPath(); ctx.moveTo(lx, y - h);
+      for (let k = 0; k <= 8; k++) { const f = k / 8; ctx.lineTo(lx + w * f, y - h + h * f + (k % 2 ? -2.5 : 0)); }
+      for (let k = 8; k >= 0; k--) { const f = k / 8; ctx.lineTo(lx - w * f, y - h + h * f + (k % 2 ? -2.5 : 0)); }
+      ctx.closePath();
+      const g = ctx.createLinearGradient(lx - w, y, lx + w, y); g.addColorStop(0, '#6fa860'); g.addColorStop(0.45, '#2f6a40'); g.addColorStop(1, '#1b3a26');
+      ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(10,30,15,0.7)'; ctx.lineWidth = 0.7; ctx.stroke();
+      // needle strokes
+      ctx.strokeStyle = 'rgba(160,220,140,0.35)'; ctx.lineWidth = 0.7;
+      for (let k = 0; k < 10; k++) { const fx = lx + rng.range(-w * 0.8, w * 0.8), fy = y - rng.next() * h * 0.6; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + rng.range(-2, 2), fy + 3); ctx.stroke(); }
+      // snow-free cones
+      if (t === 1 && rng.next() < 0.6) { ctx.fillStyle = '#7a5a30'; ctx.beginPath(); ctx.ellipse(lx + w * 0.4, y - 2, 1.4, 2.4, 0.3, 0, 7); ctx.fill(); }
     }
-  } else { // blight: dead twisted tree with sparse dark foliage
-    const trunk = '#3a2e2a', leafA = '#4a3d55', leafB = '#2a2030';
-    ctx.strokeStyle = trunk; ctx.lineWidth = 3.6 * sz; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-3 * sz, -14 * sz, 1 * sz, -26 * sz); ctx.stroke();
-    ctx.lineWidth = 1.8 * sz;
-    ctx.beginPath(); ctx.moveTo(-1 * sz, -16 * sz); ctx.quadraticCurveTo(-8 * sz, -20 * sz, -10 * sz, -30 * sz); ctx.moveTo(0.5 * sz, -22 * sz); ctx.quadraticCurveTo(7 * sz, -26 * sz, 9 * sz, -34 * sz); ctx.moveTo(1 * sz, -26 * sz); ctx.lineTo(-2 * sz, -36 * sz); ctx.stroke();
-    ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-10 * sz, -30 * sz); ctx.lineTo(-13 * sz, -34 * sz); ctx.moveTo(9 * sz, -34 * sz); ctx.lineTo(12 * sz, -36 * sz); ctx.moveTo(-2 * sz, -36 * sz); ctx.lineTo(1 * sz, -41 * sz); ctx.stroke();
-    for (const [cx, cy, r] of [[-9, -33, 5], [8, -36, 5.5], [-1, -39, 5]]) {
-      const g = ctx.createRadialGradient(cx * sz, (cy - 2) * sz, 1, cx * sz, cy * sz, r * sz); g.addColorStop(0, leafA); g.addColorStop(1, leafB);
-      ell(ctx, cx * sz, cy * sz, r * sz, r * 0.7 * sz, g, 'rgba(10,5,15,.6)', 0.6);
-    }
+  } else { // blight: dead twisted tree, sparse dark foliage, webs
+    const trunk = '#3a2e2a', tD = '#1a1210', tL = '#5a4a44';
+    ctx.strokeStyle = tD; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    for (const [dx, dy] of [[-6, 1], [-3, 2.5], [5, 2]]) { ctx.beginPath(); ctx.moveTo(dx * 0.3, -2); ctx.quadraticCurveTo(dx * 0.8, 0, dx * sz, dy); ctx.stroke(); }
+    ctx.strokeStyle = trunk; ctx.lineWidth = 3.8 * sz;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-3 * sz, -14 * sz, 1 * sz + lean, -26 * sz); ctx.stroke();
+    ctx.strokeStyle = tL; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-1.2, -1); ctx.quadraticCurveTo(-3.5 * sz, -13 * sz, 0 + lean, -24 * sz); ctx.stroke();
+    ctx.strokeStyle = trunk; ctx.lineWidth = 1.9 * sz;
+    ctx.beginPath(); ctx.moveTo(-1 * sz, -16 * sz); ctx.quadraticCurveTo(-8 * sz, -20 * sz, -10 * sz + lean, -30 * sz); ctx.moveTo(0.5 * sz, -22 * sz); ctx.quadraticCurveTo(7 * sz, -26 * sz, 9 * sz + lean, -34 * sz); ctx.moveTo(1 * sz + lean, -26 * sz); ctx.lineTo(-2 * sz + lean, -36 * sz); ctx.stroke();
+    ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(-10 * sz + lean, -30 * sz); ctx.lineTo(-13 * sz + lean, -34 * sz); ctx.moveTo(-10 * sz + lean, -30 * sz); ctx.lineTo(-12 * sz + lean, -28 * sz); ctx.moveTo(9 * sz + lean, -34 * sz); ctx.lineTo(12 * sz + lean, -36 * sz); ctx.moveTo(9 * sz + lean, -34 * sz); ctx.lineTo(11 * sz + lean, -31 * sz); ctx.moveTo(-2 * sz + lean, -36 * sz); ctx.lineTo(1 * sz + lean, -41 * sz); ctx.stroke();
+    const blobs = [[-9 + lean, -33, 5.5], [8 + lean, -36, 6], [-1 + lean, -39, 5.5]].map(([x, y, r]) => [x * sz, y * sz, r * sz]);
+    leafCanopy(ctx, blobs, ['#1e1626', '#4a3a5a', '#7a6690', '#3a5a3a'], rng, { density: 0.8 });
+    // cobwebs
+    ctx.strokeStyle = 'rgba(220,220,235,0.35)'; ctx.lineWidth = 0.5;
+    if (rng.next() < 0.7) { const ax = -10 * sz + lean, ay = -30 * sz, bx = 1 * sz + lean, by = -26 * sz; for (let k = 1; k < 4; k++) { const f = k / 4; ctx.beginPath(); ctx.moveTo(ax + (bx - ax) * f, ay + (by - ay) * f); ctx.quadraticCurveTo(ax + (bx - ax) * f, ay + (by - ay) * f + 4 * f + 2, ax + (bx - ax) * f * 0.6, ay + (by - ay) * f * 0.6 + 8); ctx.stroke(); } }
     ctx.fillStyle = '#d8ccb0'; ell(ctx, 4 * sz, -1, 1.6, 1, '#d8ccb0'); // bone at roots
   }
-  // ground shadow baked lightly
-  ctx.globalCompositeOperation = 'destination-over';
-  ell(ctx, 0, 1, 7 * sz, 3 * sz, 'rgba(0,0,0,0.25)');
-  ctx.globalCompositeOperation = 'source-over';
 }
-export function treeStyle(biome) { return biome < 0.33 ? 'mallorn' : biome < 0.62 ? 'oak' : 'blight'; }
 
 export const NODE_W = 64, NODE_H = 48, NODE_ANCHOR_Y = 40;
 export function nodeSprite(kind, variant) {
@@ -525,26 +611,33 @@ export function nodeSprite(kind, variant) {
   return cached(key, NODE_W * 1.5, NODE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5); ctx.translate(NODE_W / 2, NODE_ANCHOR_Y);
     const rng = new RNG(variant * 131 + 7);
-    ell(ctx, 0, 0, 14, 6, 'rgba(0,0,0,0.22)');
+    const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 6.5, 0, 0, 7); ctx.fill();
     if (kind === 'gold' || kind === 'stone') {
       const base = kind === 'gold' ? '#8a7a66' : '#8d8f8a';
       const rocks = [[-7, -2, 9, 6], [6, -3, 8, 6], [0, -7, 8, 6], [-2, 1, 6, 4]];
       for (const [x, y, w, h] of rocks) {
-        const g = ctx.createLinearGradient(x - w, y - h, x + w, y + h); g.addColorStop(0, shade(base, 0.3)); g.addColorStop(1, shade(base, -0.45));
+        const g = ctx.createLinearGradient(x - w, y - h, x + w, y + h); g.addColorStop(0, shade(base, 0.35)); g.addColorStop(0.5, base); g.addColorStop(1, shade(base, -0.5));
         poly(ctx, [[x - w, y + h * 0.5], [x - w * 0.6, y - h], [x + w * 0.4, y - h * 1.1], [x + w, y + h * 0.3], [x + w * 0.5, y + h]], g, OUT, 0.7);
+        // facets
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(x + w * 0.4, y - h * 1.1); ctx.lineTo(x + w * 0.1, y + h * 0.6); ctx.moveTo(x - w * 0.6, y - h); ctx.lineTo(x - w * 0.2, y + h * 0.1); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.moveTo(x - w * 0.55, y - h * 0.9); ctx.lineTo(x + w * 0.3, y - h * 1.0); ctx.stroke();
       }
-      if (kind === 'gold') { for (let i = 0; i < 9; i++) { const x = rng.range(-12, 12), y = rng.range(-10, 2); poly(ctx, [[x, y - 1.6], [x + 1.6, y], [x, y + 1.4], [x - 1.5, y]], '#f0c030', '#7a5a10', 0.4); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x - 0.4, y - 0.9, 0.8, 0.8); } }
-      else { ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.5; for (let i = 0; i < 6; i++) { const x = rng.range(-10, 10), y = rng.range(-8, 2); line(ctx, x, y, x + rng.range(-3, 3), y + rng.range(-2, 2), 'rgba(0,0,0,0.35)', 0.5); } }
+      if (kind === 'gold') {
+        for (let i = 0; i < 7; i++) { const x = rng.range(-12, 12), y = rng.range(-10, 2); ctx.strokeStyle = '#e0b030'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.quadraticCurveTo(x, y - 2, x + 3, y + 1); ctx.stroke(); }
+        for (let i = 0; i < 9; i++) { const x = rng.range(-12, 12), y = rng.range(-10, 2); poly(ctx, [[x, y - 1.8], [x + 1.8, y], [x, y + 1.6], [x - 1.7, y]], '#f5c832', '#7a5a10', 0.4); ctx.fillStyle = '#fff8d0'; ctx.fillRect(x - 0.5, y - 1, 0.9, 0.9); }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; const gg = ctx.createRadialGradient(0, -4, 0, 0, -4, 16); gg.addColorStop(0, 'rgba(255,210,90,0.25)'); gg.addColorStop(1, 'rgba(255,210,90,0)'); ctx.fillStyle = gg; ctx.fillRect(-20, -20, 40, 30); ctx.restore();
+      } else {
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.5; for (let i = 0; i < 6; i++) { const x = rng.range(-10, 10), y = rng.range(-8, 2); line(ctx, x, y, x + rng.range(-3, 3), y + rng.range(-2, 2), 'rgba(0,0,0,0.35)', 0.5); }
+        ctx.fillStyle = 'rgba(120,170,80,0.5)'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(rng.range(-10, 8), rng.range(-9, -2), 3, 1.6, rng.next(), 0, 7); ctx.fill(); }
+      }
     } else if (kind === 'berry') {
-      for (const [x, y, r] of [[-7, -3, 7], [6, -4, 7.5], [0, -8, 6.5], [-1, -1, 5.5]]) {
-        const g = ctx.createRadialGradient(x - 2, y - 3, 1, x, y, r); g.addColorStop(0, '#7fbf55'); g.addColorStop(1, '#2a5a24');
-        ell(ctx, x, y, r, r * 0.8, g, 'rgba(15,40,10,.6)', 0.6);
-      }
-      for (let i = 0; i < 14; i++) { const x = rng.range(-12, 12), y = rng.range(-13, 1); ctx.fillStyle = rng.next() < 0.5 ? '#d43a4a' : '#5a3aa0'; ctx.beginPath(); ctx.arc(x, y, 1.1, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(x - 0.3, y - 0.3, 0.35, 0, 7); ctx.fill(); }
+      leafCanopy(ctx, [[-7, -4, 7.5], [6, -5, 8], [0, -9, 7], [-1, -2, 6]], ['#1f4a1c', '#3f7a32', '#7fbf55', '#5a9a40'], rng, { density: 1.3 });
+      for (let i = 0; i < 16; i++) { const x = rng.range(-12, 12), y = rng.range(-14, 1); ctx.fillStyle = rng.next() < 0.5 ? '#d43a4a' : '#5a3aa0'; ctx.beginPath(); ctx.arc(x, y, 1.2, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(x - 0.35, y - 0.35, 0.4, 0, 7); ctx.fill(); }
     } else if (kind === 'carcass') {
       ell(ctx, 0, -2, 11, 4.5, '#8a5a3a', OUT, 0.7); ell(ctx, 9, -3, 3.5, 2.5, '#8a5a3a', OUT, 0.6);
       line(ctx, -6, 1, -8, 3, '#5a3a20', 1.4); line(ctx, 2, 1.5, 4, 3.5, '#5a3a20', 1.4);
-      ctx.fillStyle = '#a02020'; ell(ctx, -2, -1, 4, 2, 'rgba(160,30,30,.75)');
+      ell(ctx, -2, -1, 4, 2, 'rgba(160,30,30,.75)');
+      ctx.fillStyle = 'rgba(120,20,20,0.5)'; ctx.beginPath(); ctx.ellipse(3, 3, 9, 3, 0, 0, 7); ctx.fill();
     }
   });
 }
@@ -577,29 +670,101 @@ function isoDiamond(c, u0, v0, u1, v1, fill, stroke, z = 0) {
   poly(ctx, [P(u0, v0, z), P(u1, v0, z), P(u1, v1, z), P(u0, v1, z)], fill, stroke, 0.8);
 }
 function isoBox(c, u0, v0, u1, v1, z0, z1, color, opts = {}) {
-  const { ctx, P } = c;
+  const { ctx, P, rng } = c;
   const top = shade(color, opts.topLight ?? 0.22), left = shade(color, -0.08), right = shade(color, -0.4);
-  // left face (facing camera-left): edge from (u0,v1) to (u1,v1)
-  poly(ctx, [P(u0, v1, z0), P(u1, v1, z0), P(u1, v1, z1), P(u0, v1, z1)], opts.leftGrad ? vgrad(ctx, 0, P(u0, v1, z1)[1], P(u0, v1, z0)[1], shade(color, 0.05), shade(color, -0.3)) : left, OUT, 0.7);
-  // right face: edge from (u1,v0) to (u1,v1)
-  poly(ctx, [P(u1, v0, z0), P(u1, v1, z0), P(u1, v1, z1), P(u1, v0, z1)], opts.rightGrad ? vgrad(ctx, 0, P(u1, v0, z1)[1], P(u1, v0, z0)[1], shade(color, -0.25), shade(color, -0.55)) : right, OUT, 0.7);
+  const tex = opts.tex || (color === E.stone || color === O.rock || color === '#8a7a60' ? 'stone' : 'plank');
+  const elf = c.faction === 'elves';
+  const faces = [
+    { pts: [P(u0, v1, z0), P(u1, v1, z0), P(u1, v1, z1), P(u0, v1, z1)], fill: opts.leftGrad ? vgrad(ctx, 0, P(u0, v1, z1)[1], P(u0, v1, z0)[1], shade(color, 0.05), shade(color, -0.3)) : left, a: [u0, v1], b: [u1, v1], dark: 0 },
+    { pts: [P(u1, v0, z0), P(u1, v1, z0), P(u1, v1, z1), P(u1, v0, z1)], fill: opts.rightGrad ? vgrad(ctx, 0, P(u1, v0, z1)[1], P(u1, v0, z0)[1], shade(color, -0.25), shade(color, -0.55)) : right, a: [u1, v0], b: [u1, v1], dark: 1 },
+  ];
+  for (const f of faces) {
+    poly(ctx, f.pts, f.fill, null);
+    ctx.save(); ctx.beginPath(); ctx.moveTo(f.pts[0][0], f.pts[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(f.pts[i][0], f.pts[i][1]); ctx.closePath(); ctx.clip();
+    const H = z1 - z0;
+    if (tex === 'plank') {
+      const step = elf ? 6 : 5;
+      for (let z = z0 + step; z < z1; z += step) {
+        const [ax, ay] = P(f.a[0], f.a[1], z), [bx, by] = P(f.b[0], f.b[1], z);
+        line(ctx, ax, ay, bx, by, 'rgba(0,0,0,0.22)', 1); line(ctx, ax, ay + 1, bx, by + 1, 'rgba(255,255,255,0.12)', 0.7);
+        if (!elf && rng.next() < 0.8) { ctx.fillStyle = 'rgba(30,30,30,0.7)'; const n = 2 + rng.int(0, 2); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n + rng.range(-0.08, 0.08); ctx.beginPath(); ctx.arc(ax + (bx - ax) * t, ay + (by - ay) * t - 2.2, 0.7, 0, 7); ctx.fill(); } }
+      }
+      if (!elf) { // vertical board seams
+        const n = Math.max(2, Math.round(Math.hypot(f.pts[1][0] - f.pts[0][0], f.pts[1][1] - f.pts[0][1]) / 9));
+        for (let k = 1; k < n; k++) { const t = k / n + rng.range(-0.03, 0.03); const x = f.pts[0][0] + (f.pts[1][0] - f.pts[0][0]) * t, y = f.pts[0][1] + (f.pts[1][1] - f.pts[0][1]) * t; line(ctx, x, y, x, y - H, 'rgba(0,0,0,0.28)', 0.8); }
+      } else { // elven: slim pale panels with a gold line
+        const n = Math.max(2, Math.round(Math.hypot(f.pts[1][0] - f.pts[0][0], f.pts[1][1] - f.pts[0][1]) / 14));
+        for (let k = 1; k < n; k++) { const t = k / n; const x = f.pts[0][0] + (f.pts[1][0] - f.pts[0][0]) * t, y = f.pts[0][1] + (f.pts[1][1] - f.pts[0][1]) * t; line(ctx, x, y, x, y - H, 'rgba(0,0,0,0.12)', 0.8); }
+      }
+    } else if (tex === 'stone') {
+      const course = 6;
+      let row = 0;
+      for (let z = z0; z < z1; z += course, row++) {
+        const [ax, ay] = P(f.a[0], f.a[1], z), [bx, by] = P(f.b[0], f.b[1], z);
+        const len = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.round(len / 9)); const off = row % 2 ? 0.5 : 0;
+        for (let k = 0; k < n + 1; k++) {
+          const t0 = (k - off) / n, t1 = (k + 1 - off) / n; if (t1 <= 0 || t0 >= 1) continue;
+          const x0 = ax + (bx - ax) * Math.max(0, t0), y0 = ay + (by - ay) * Math.max(0, t0), x1 = ax + (bx - ax) * Math.min(1, t1), y1 = ay + (by - ay) * Math.min(1, t1);
+          ctx.fillStyle = `rgba(${rng.next() < 0.5 ? '255,255,255' : '0,0,0'},${0.05 + rng.next() * 0.08})`;
+          ctx.beginPath(); ctx.moveTo(x0 + 0.6, y0 - 0.6); ctx.lineTo(x1 - 0.6, y1 - 0.6); ctx.lineTo(x1 - 0.6, y1 - course + 0.6); ctx.lineTo(x0 + 0.6, y0 - course + 0.6); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.7; ctx.stroke();
+        }
+      }
+    }
+    // base ambient occlusion + top-edge highlight
+    const [ax0, ay0] = P(f.a[0], f.a[1], z0), [bx0, by0] = P(f.b[0], f.b[1], z0), [ax1, ay1] = P(f.a[0], f.a[1], z0 + 9), [bx1, by1] = P(f.b[0], f.b[1], z0 + 9);
+    const g = ctx.createLinearGradient(0, ay0, 0, ay1); g.addColorStop(0, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    poly(ctx, [[ax0, ay0], [bx0, by0], [bx1, by1], [ax1, ay1]], g, null);
+    if (f.dark) { ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(-500, -500, 1000, 1000); }
+    ctx.restore();
+    ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(f.pts[0][0], f.pts[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(f.pts[i][0], f.pts[i][1]); ctx.closePath(); ctx.stroke();
+  }
   // top
   if (!opts.noTop) poly(ctx, [P(u0, v0, z1), P(u1, v0, z1), P(u1, v1, z1), P(u0, v1, z1)], opts.topColor || top, OUT, 0.7);
 }
 // pitched roof over box footprint, ridge along u axis (ridge from (u0,vm) to (u1,vm))
 function isoRoof(c, u0, v0, u1, v1, zBase, zRidge, color, alongU = true, overhang = 0.12) {
-  const { ctx, P } = c;
-  const vm = (v0 + v1) / 2, um = (u0 + u1) / 2;
-  if (alongU) {
-    // two slopes: near (v1 side, lit) and far (v0 side)
-    poly(ctx, [P(u0 - overhang, v1 + overhang, zBase), P(u1 + overhang, v1 + overhang, zBase), P(u1 + overhang, vm, zRidge), P(u0 - overhang, vm, zRidge)], shade(color, -0.05), OUT, 0.8);
-    poly(ctx, [P(u0 - overhang, v0 - overhang, zBase), P(u1 + overhang, v0 - overhang, zBase), P(u1 + overhang, vm, zRidge), P(u0 - overhang, vm, zRidge)], shade(color, 0.25), OUT, 0.8);
-    line(ctx, ...P(u0 - overhang, vm, zRidge), ...P(u1 + overhang, vm, zRidge), shade(color, 0.5), 1.2);
-  } else {
-    poly(ctx, [P(u1 + overhang, v0 - overhang, zBase), P(u1 + overhang, v1 + overhang, zBase), P(um, v1 + overhang, zRidge), P(um, v0 - overhang, zRidge)], shade(color, -0.35), OUT, 0.8);
-    poly(ctx, [P(u0 - overhang, v0 - overhang, zBase), P(u0 - overhang, v1 + overhang, zBase), P(um, v1 + overhang, zRidge), P(um, v0 - overhang, zRidge)], shade(color, 0.2), OUT, 0.8);
-    line(ctx, ...P(um, v0 - overhang, zRidge), ...P(um, v1 + overhang, zRidge), shade(color, 0.5), 1.2);
+  const { ctx, P, rng } = c;
+  const vm = (v0 + v1) / 2, um = (u0 + u1) / 2, o = overhang;
+  const elf = c.faction === 'elves';
+  const slopes = alongU ? [
+    { pts: [P(u0 - o, v1 + o, zBase), P(u1 + o, v1 + o, zBase), P(u1 + o, vm, zRidge), P(u0 - o, vm, zRidge)], sh: -0.05, lit: true },
+    { pts: [P(u0 - o, v0 - o, zBase), P(u1 + o, v0 - o, zBase), P(u1 + o, vm, zRidge), P(u0 - o, vm, zRidge)], sh: 0.25, lit: false },
+  ] : [
+    { pts: [P(u1 + o, v0 - o, zBase), P(u1 + o, v1 + o, zBase), P(um, v1 + o, zRidge), P(um, v0 - o, zRidge)], sh: -0.35, lit: false },
+    { pts: [P(u0 - o, v0 - o, zBase), P(u0 - o, v1 + o, zBase), P(um, v1 + o, zRidge), P(um, v0 - o, zRidge)], sh: 0.2, lit: true },
+  ];
+  for (const s of slopes) {
+    const [e0, e1, r1, r0] = s.pts;        // eave a, eave b, ridge b, ridge a
+    poly(ctx, s.pts, vgrad(ctx, 0, r0[1], e0[1], shade(color, s.sh + 0.18), shade(color, s.sh - 0.1)), null);
+    ctx.save(); ctx.beginPath(); ctx.moveTo(e0[0], e0[1]); ctx.lineTo(e1[0], e1[1]); ctx.lineTo(r1[0], r1[1]); ctx.lineTo(r0[0], r0[1]); ctx.closePath(); ctx.clip();
+    const rows = Math.max(3, Math.round((e0[1] - r0[1]) / (elf ? 4.5 : 6)));
+    for (let i = 0; i <= rows; i++) {
+      const f = i / rows;
+      const ax = e0[0] + (r0[0] - e0[0]) * f, ay = e0[1] + (r0[1] - e0[1]) * f, bx = e1[0] + (r1[0] - e1[0]) * f, by = e1[1] + (r1[1] - e1[1]) * f;
+      if (elf) { // slate shingles: scalloped rows
+        const len = Math.hypot(bx - ax, by - ay), n = Math.max(2, Math.round(len / 5)), off = (i % 2) * 0.5;
+        ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 0.8; ctx.beginPath();
+        for (let k = 0; k <= n; k++) { const t = (k + off) / n; const x = ax + (bx - ax) * t, y = ay + (by - ay) * t; ctx.moveTo(x, y); ctx.arc(x, y - 1.5, 2.4, 0.2, Math.PI - 0.2); }
+        ctx.stroke();
+        line(ctx, ax, ay - 2.2, bx, by - 2.2, 'rgba(255,255,255,0.1)', 0.8);
+      } else { // hide roof: seams, patches & stitches
+        line(ctx, ax, ay, bx, by, 'rgba(0,0,0,0.22)', 1.2);
+        if (rng.next() < 0.5) { const t = rng.next(); const x = ax + (bx - ax) * t, y = ay + (by - ay) * t; ctx.fillStyle = `rgba(${rng.next() < 0.5 ? '0,0,0' : '255,255,255'},0.1)`; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 7, y + 2); ctx.lineTo(x + 6, y - 5); ctx.lineTo(x - 1, y - 6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(230,220,200,0.45)'; ctx.lineWidth = 0.6; ctx.setLineDash([1.2, 1.5]); ctx.stroke(); ctx.setLineDash([]); }
+      }
+    }
+    // eave shadow (under the overhang) and slope darkening on the far side
+    const g = ctx.createLinearGradient(0, e0[1] - 6, 0, e0[1]); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.25)');
+    poly(ctx, [[e0[0], e0[1] - 6], [e1[0], e1[1] - 6], e1, e0], g, null);
+    if (!s.lit) { ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(-500, -500, 1000, 1000); }
+    ctx.restore();
+    poly(ctx, s.pts, null, OUT, 0.8);
+    if (elf) line(ctx, e0[0], e0[1], e1[0], e1[1], E.gold, 1.1);
   }
+  // ridge beam
+  const ra = alongU ? P(u0 - o, vm, zRidge) : P(um, v0 - o, zRidge), rb = alongU ? P(u1 + o, vm, zRidge) : P(um, v1 + o, zRidge);
+  line(ctx, ra[0], ra[1], rb[0], rb[1], shade(color, 0.5), 1.6); line(ctx, ra[0], ra[1] + 1.2, rb[0], rb[1] + 1.2, 'rgba(0,0,0,0.3)', 0.8);
+  if (!elf) { for (let k = 0; k < 3; k++) { const t = (k + 0.5) / 3; spike(c, ra[0] + (rb[0] - ra[0]) * t, ra[1] + (rb[1] - ra[1]) * t, 4, O.bone); } }
 }
 function cylinder(c, u, v, r, z0, z1, color, topColor, bark = false) {
   const { ctx, P } = c;
@@ -623,19 +788,25 @@ function cone(c, u, v, r, z0, z1, color) {
   const rx = r * HW, ry = r * HH;
   ctx.beginPath(); ctx.moveTo(cx - rx, cy0); ctx.ellipse(cx, cy0, rx, ry, 0, Math.PI, 0, true); ctx.lineTo(cx, cy1); ctx.closePath();
   const g = ctx.createLinearGradient(cx - rx, 0, cx + rx, 0); g.addColorStop(0, shade(color, -0.1)); g.addColorStop(0.4, shade(color, 0.25)); g.addColorStop(1, shade(color, -0.5));
-  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.stroke();
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();
+  for (let i = 0; i < 14; i++) { const t = (i + 0.5) / 14; const bx = cx - rx + 2 * rx * t, by = cy0 + Math.sin(Math.PI * t) * ry * 0.95; line(ctx, cx + (bx - cx) * 0.1, cy1 + (by - cy1) * 0.1, bx, by, i % 2 ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.12)', 0.9); }
+  ctx.restore(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.stroke();
+}
+// climbing ivy with leaves along a quadratic curve
+function ivy(c, x0, y0, cx, cy, x1, y1, col = '#4f8f3a') {
+  const { ctx, rng } = c;
+  ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cx, cy, x1, y1); ctx.stroke();
+  for (let i = 0; i < 10; i++) { const t = (i + 0.5) / 10, mt = 1 - t; const x = mt * mt * x0 + 2 * mt * t * cx + t * t * x1, y = mt * mt * y0 + 2 * mt * t * cy + t * t * y1; ctx.fillStyle = i % 3 ? col : shade(col, 0.3); ctx.beginPath(); ctx.ellipse(x + rng.range(-1.5, 1.5), y + rng.range(-1, 1), 2, 1.3, rng.next() * 3, 0, 7); ctx.fill(); }
 }
 function canopy(c, u, v, z, r, colors, rng) {
   const { ctx, P } = c;
   const [cx, cy] = P(u, v, z);
   // soft dark underside
   ell(ctx, cx, cy + r * 0.45, r * 1.25, r * 0.55, 'rgba(20,30,10,0.35)');
-  const blobs = [[-0.6, 0.1, 0.75], [0.6, 0.0, 0.8], [0, -0.5, 0.85], [-0.2, 0.35, 0.6], [0.3, 0.3, 0.6]];
-  for (const [bx, by, br] of blobs) {
-    const x = cx + bx * r, y = cy + by * r * 0.8, rr = br * r;
-    const g = ctx.createRadialGradient(x - rr * 0.35, y - rr * 0.4, 1, x, y, rr); g.addColorStop(0, colors[2]); g.addColorStop(0.5, colors[0]); g.addColorStop(1, colors[1]);
-    ell(ctx, x, y, rr, rr * 0.85, g, 'rgba(20,30,10,.5)', 0.6);
-  }
+  const blobs = [[-0.6, 0.1, 0.75], [0.6, 0.0, 0.8], [0, -0.5, 0.85], [-0.2, 0.35, 0.6], [0.3, 0.3, 0.6]].map(([bx, by, br]) => [cx + bx * r, cy + by * r * 0.8, br * r]);
+  const [mid, dark, light] = colors;
+  leafCanopy(ctx, blobs, [shade(dark, -0.15), mid, light, mixHex(mid, '#ffffff', 0.15)], rng, { density: 0.9, specks: colors === E.leaf ? 'rgba(255,250,220,0.95)' : null });
 }
 function banner(c, x, y, h, color, pole = '#3a2a1a') {
   const { ctx } = c;
@@ -759,6 +930,7 @@ const ELF = {
     // windows / lanterns along the near wall
     for (let i = 0; i < 4; i++) { const [x, y] = P(1 + i * 0.7, 2.8, 12); rrect(ctx, x - 1.5, y - 3, 3, 5, 1.5, '#ffe9a0', '#7a6a40', 0.5); }
     for (let i = 0; i < 3; i++) { const [x, y] = P(3.4, 1.5 + i * 0.6, 12); rrect(ctx, x - 1.3, y - 3, 2.6, 5, 1.3, '#ffe9a0', '#7a6a40', 0.5); }
+    ivy(c, ...P(0.7, 2.8, 2), ...P(0.9, 2.8, 14), ...P(1.3, 2.8, 20)); ivy(c, ...P(3.4, 1.3, 0), ...P(3.4, 1.6, 12), ...P(3.4, 2.0, 21));
     // doorway with golden arch
     const [dx, dy] = P(2, 2.8, 0); ctx.beginPath(); ctx.moveTo(dx - 4, dy); ctx.lineTo(dx - 4, dy - 9); ctx.quadraticCurveTo(dx, dy - 15, dx + 4, dy - 9); ctx.lineTo(dx + 4, dy); ctx.closePath(); ctx.fillStyle = '#2a2a24'; ctx.fill(); ctx.strokeStyle = E.gold; ctx.lineWidth = 1.2; ctx.stroke();
     // great mallorn trunk through the roof (tapered, with bark and root flare)
@@ -845,6 +1017,7 @@ const ELF = {
     // gold trim + windows
     for (let i = 0; i < 4; i++) { const [x, y] = P(0.6 + i * 0.6, 2.4, 10); rrect(ctx, x - 1.4, y - 3, 2.8, 5, 1.4, '#ffe9a0', '#7a6a40', 0.5); }
     const [dx, dy] = P(1.5, 2.4, 0); ctx.beginPath(); ctx.moveTo(dx - 3.5, dy); ctx.lineTo(dx - 3.5, dy - 8); ctx.quadraticCurveTo(dx, dy - 13, dx + 3.5, dy - 8); ctx.lineTo(dx + 3.5, dy); ctx.fillStyle = '#2a2a24'; ctx.fill(); ctx.strokeStyle = E.gold; ctx.lineWidth = 1; ctx.stroke();
+    ivy(c, ...P(0.35, 2.4, 2), ...P(0.5, 2.4, 12), ...P(0.9, 2.4, 19));
     // spear rack & training post
     const [rx, ry] = P(2.6, 2.7, 0); for (let i = 0; i < 4; i++) { line(ctx, rx + i * 2.5 - 4, ry, rx + i * 2.5 - 3, ry - 16, '#8a6a40', 0.9); poly(ctx, [[rx + i * 2.5 - 3, ry - 16], [rx + i * 2.5 - 4, ry - 18.5], [rx + i * 2.5 - 2, ry - 18.5]], '#cfd8d8'); }
     const [px, py] = P(0.4, 2.7, 0); line(ctx, px, py, px, py - 12, '#8a6a40', 2.2); ell(ctx, px, py - 9, 3, 3, '#b89a70', OUT, 0.5);

@@ -731,6 +731,7 @@ export class Game {
     pr.z = 0.9 * (1 - k) + 0.6 * k + Math.sin(k * Math.PI) * pr.arc;
     if (k >= 1) {
       pr.dead = true;
+      if (!t.dead && t.kind === 'unit' && t.anim === 'walk' && !pr.fromBuilding && this.rng.next() < 0.18) { this.emit({ type: 'fx', fx: 'arrowMiss', x: t.x + (this.rng.next() - 0.5) * 1.2, y: t.y + (this.rng.next() - 0.5) * 1.2, owner: pr.owner }); return; }
       if (!t.dead) {
         this.applyDamage(t, pr.dmg, pr.shooter && !pr.shooter.dead ? pr.shooter : null);
         this.emit({ type: 'fx', fx: t.kind === 'building' ? 'spark' : 'blood', x: t.x, y: t.y });
