@@ -1,4 +1,17 @@
 {
   "_comment": "files: liste over PNG-filer i denne mappe. Valgfri finjustering pr. billede: scale (1 = standard), dx/dy (pixelforskydning), tolerance (baggrundsfjernelse, standard 70), keep (true = behold baggrund).",
-  "files": []
+  "files": [
+    "b_elves_tc.webp",
+    "b_orcs_tc.webp"
+  ],
+  "b_orcs_tc": {
+    "scale": 0.88,
+    "dy": 2,
+    "keep": true
+  },
+  "b_elves_tc": {
+    "scale": 0.86,
+    "dy": 4,
+    "keep": true
+  }
 }

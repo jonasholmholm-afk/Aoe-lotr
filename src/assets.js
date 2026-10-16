@@ -18,7 +18,10 @@ export function loadArt(onProgress) {
   const base = 'assets/art/';
   const p = fetch(base + 'manifest.json').then(r => r.ok ? r.json() : {}).catch(() => ({})).then(m => { ART.tuning = m || {}; });
   // manifest.files lists which PNGs exist (avoids 40+ failed requests); without it every key is tried
-  return p.then(() => { const keys = Array.isArray(ART.tuning.files) ? ART.tuning.files.map(f => f.replace(/\.png$/, '')) : ALL_KEYS; return Promise.all(keys.map(key => loadOne(base + key + '.png', key))); }).then(() => { ART.ready = true; ART.version++; onProgress && onProgress(); return ART; });
+  return p.then(() => {
+    if (Array.isArray(ART.tuning.files)) return Promise.all(ART.tuning.files.map(f => loadOne(base + f, f.replace(/\.(png|webp)$/, ''))));
+    return Promise.all(ALL_KEYS.map(key => loadOne(base + key + '.webp', key).then(() => ART.images.has(key) ? null : loadOne(base + key + '.png', key))));
+  }).then(() => { ART.ready = true; ART.version++; onProgress && onProgress(); return ART; });
 }
 function loadOne(url, key) {
   return new Promise(resolve => {
@@ -29,7 +32,7 @@ function loadOne(url, key) {
   });
 }
 // Convert an image to a canvas; remove a flat background colour (keyed from the corners) unless tuning says keep.
-function prepare(img, key) {
+export function prepare(img, key) {
   const c = makeCanvas(img.naturalWidth, img.naturalHeight); const x = c.getContext('2d'); x.drawImage(img, 0, 0);
   const t = ART.tuning[key] || {};
   if (t.keep || key.startsWith('tex_') || key === 'menu_bg') return c;
@@ -51,6 +54,21 @@ function prepare(img, key) {
     const o = i * 4; d[o + 3] = dist < tol * 0.6 ? 0 : Math.round(255 * (dist - tol * 0.6) / (tol * 0.4));
     const px = i % W, py = (i - px) / W;
     if (px > 0) stack.push(i - 1); if (px < W - 1) stack.push(i + 1); if (py > 0) stack.push(i - W); if (py < H - 1) stack.push(i + W);
+  }
+  // enclosed pockets of background (between branches etc.) are not reached by the flood fill: key them globally with a tighter tolerance
+  const tol2 = t.innerTolerance ?? Math.min(tol, 60);
+  for (let i = 0; i < W * H; i++) { if (seen[i]) continue; const dist = close(i); if (dist < tol2) { const o = i * 4; d[o + 3] = Math.min(d[o + 3], dist < tol2 * 0.6 ? 0 : Math.round(255 * (dist - tol2 * 0.6) / (tol2 * 0.4))); } }
+  // despill: any remaining pixel that leans toward the key colour (anti-aliased fringes, gaps between leaves) has that cast removed
+  const isMagenta = kr > 180 && kb > 180 && kg < 120;
+  if (isMagenta) {
+    for (let i = 0; i < W * H; i++) {
+      const o = i * 4; if (d[o + 3] === 0) continue;
+      const dist = close(i); if (dist > 150) continue;
+      const m = (d[o] + d[o + 2]) / 2, g = d[o + 1]; if (m <= g + 20) continue;
+      const k = 0.75 * (1 - dist / 150); const pull = (m - g) * k;
+      d[o] = Math.max(0, Math.round(d[o] - pull)); d[o + 2] = Math.max(0, Math.round(d[o + 2] - pull));
+      if (dist < 90) d[o + 3] = Math.min(d[o + 3], Math.round(255 * Math.min(1, (dist - tol2 * 0.6) / 60)));
+    }
   }
   x.putImageData(id, 0, 0);
   // trim transparent margins

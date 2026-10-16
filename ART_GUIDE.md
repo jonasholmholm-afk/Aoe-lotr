@@ -1,7 +1,13 @@
 # Billedguide (AI-genereret grafik)
 
-Læg PNG-filer i `assets/art/` med navnene nedenfor og tilføj dem til `"files"` i `assets/art/manifest.json`.
-Spillet fjerner selv en ensfarvet baggrund (magenta, hvid eller grå) og falder tilbage til den tegnede grafik, hvis en fil mangler.
+Rå billeder (fra ChatGPT m.fl.) lægges i `assets/raw/` (ikke i git) og køres gennem værktøjet, som fjerner den ensfarvede baggrund, trimmer, nedskalerer og gemmer som WebP i `assets/art/` samt opdaterer `manifest.json`:
+
+```bash
+python3 -m http.server 8123 &          # værktøjet bruger spillets egen kode i en headless browser
+node tools/process-art.mjs b_elves_tc assets/raw/elf-tc.png
+```
+
+Spillet indlæser filerne i `"files"` i `assets/art/manifest.json` og falder tilbage til den tegnede grafik, hvis en fil mangler. En PNG lagt direkte i `assets/art/` virker også; så fjernes baggrunden ved indlæsning.
 
 ## Fælles stilblok (sættes foran alle prompts)
 > Painterly isometric real-time-strategy game sprite in the style of Age of Empires II Definitive Edition, high-fantasy Lord of the Rings / Warhammer Fantasy world. True 2:1 isometric view (camera rotated 45°, tilted about 30° down), object seen from the front-left, light from the top-left with soft shadows. Single object centered, fully visible, nothing cropped, no text, no watermark, no people. Rich detail, crisp edges, clean readable silhouette. Plain flat solid magenta background (#FF00FF).
