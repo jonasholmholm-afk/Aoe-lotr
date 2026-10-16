@@ -498,11 +498,16 @@ export const TREE_VARIANTS = 8;
 export function treeSprite(style, variant) {
   const v = variant % TREE_VARIANTS;
   const key = `tree|${style}|${v}|${ART.version}`;
-  const img = art(`tree_${style}_${(v % 4) + 1}`) || art(`tree_${style}_1`);
+  const img = art(`tree_${style}_${(v % 4) + 1}`) || art(`tree_${style}_1`) || (style === 'pine' ? (art(`tree_oak_${(v % 4) + 1}`) || art('tree_oak_1')) : null);
   return cached(key, TREE_W * 1.5, TREE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5);
     ctx.translate(TREE_W / 2, TREE_ANCHOR_Y);
-    if (img) { const t = artTuning(`tree_${style}_${(v % 4) + 1}`); const sc = (t.scale ?? 1) * 80 / img.height; const w = img.width * sc, h = img.height * sc; const sg = ctx.createRadialGradient(2, 1, 1, 2, 1, 11); sg.addColorStop(0, 'rgba(0,0,0,0.35)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(2, 1, 11, 4.5, 0, 0, 7); ctx.fill(); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 3 + (t.dy || 0), w, h); return; }
+    if (img) {
+      // variety from one painting: mirror odd variants, vary size slightly
+      const t = artTuning(`tree_${style}_${(v % 4) + 1}`); const sz = [1, 0.93, 1.06, 0.97, 1.03, 0.9, 1.08, 0.95][v % 8];
+      const sc = (t.scale ?? 1) * 82 * sz / img.height; const w = img.width * sc, h = img.height * sc;
+      const sg = ctx.createRadialGradient(2, 1, 1, 2, 1, 11); sg.addColorStop(0, 'rgba(0,0,0,0.35)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(2, 1, 11 * sz, 4.5 * sz, 0, 0, 7); ctx.fill();
+      ctx.save(); if (v % 2) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 3 + (t.dy || 0), w, h); ctx.restore(); return; }
     const rng = new RNG(v * 977 + style.length * 31 + 5);
     drawTree(ctx, style, rng);
   });
