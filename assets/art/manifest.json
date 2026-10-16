@@ -1,0 +1,4 @@
+{
+  "_comment": "files: liste over PNG-filer i denne mappe. Valgfri finjustering pr. billede: scale (1 = standard), dx/dy (pixelforskydning), tolerance (baggrundsfjernelse, standard 70), keep (true = behold baggrund).",
+  "files": []
+}

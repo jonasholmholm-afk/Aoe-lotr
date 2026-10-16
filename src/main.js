@@ -12,6 +12,7 @@ import { drawFactionEmblem, clearCache, treeSprite, unitSprite, buildingSprite }
 import { UNITS, BUILDING_ROLES, FACTIONS, AGES, TECHS } from './data.js';
 import { fmtTime, dist, clamp, HW, HH, TH } from './util.js';
 import { T } from './map.js';
+import { loadArt, art } from './assets.js';
 
 const $ = (s) => document.querySelector(s);
 const audio = new Audio();
@@ -378,6 +379,8 @@ function startMenuBg() {
     const tt = (now - t0) / 1000; const W = c.width, H = c.height, k = W / 800;
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#060f0a'); g.addColorStop(0.45, '#0e2416'); g.addColorStop(0.75, '#1e2a16'); g.addColorStop(1, '#2a1a12');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const bgImg = art('menu_bg');
+    if (bgImg) { const sc = Math.max(W / bgImg.width, H / bgImg.height); const dw = bgImg.width * sc, dh = bgImg.height * sc; ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh); ctx.fillStyle = 'rgba(4,8,5,0.35)'; ctx.fillRect(0, 0, W, H); }
     // stars & moon
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 40; i++) { const sx = ((i * 97) % 800) / 800 * W, sy = ((i * 61) % 300) / 800 * W * 0.5; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(tt * 0.7 + i)); ctx.fillRect(sx, sy, 1.5 * k, 1.5 * k); }
     ctx.globalAlpha = 1;
@@ -409,5 +412,6 @@ function startMenuBg() {
 function stopMenuBg() { if (menuAnim) cancelAnimationFrame(menuAnim); menuAnim = null; }
 
 initMenu();
+loadArt(() => { clearCache(); if (app) { app.ui.sig = ''; } });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__app = () => app;

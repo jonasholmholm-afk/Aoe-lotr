@@ -6,6 +6,7 @@ import { T } from './map.js';
 import { unitSprite, treeSprite, treeStyle, nodeSprite, buildingSprite, rubbleSprite, S, BSCALE, UNIT_W, UNIT_H, UNIT_ANCHOR_Y, TREE_W, TREE_H, TREE_ANCHOR_Y, NODE_W, NODE_H, NODE_ANCHOR_Y, WALK_FRAMES, ATTACK_FRAMES } from './sprites.js';
 import { FACTIONS, BUILDING_ROLES } from './data.js';
 import { LIGHTS } from './lights.js';
+import { art, ART } from './assets.js';
 
 const CH = 8;                                  // chunk size in tiles
 const COL = {
@@ -77,6 +78,7 @@ export class Renderer {
   tinted(src, color) { const c = makeCanvas(src.width, src.height); const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height); return c; }
   getChunk(cx, cy) {
     const scale = this.cam.zoom > 1.35 ? 2 : 1;
+    if (this.artVersion !== ART.version) { this.artVersion = ART.version; this.chunks.clear(); this.minimapBase = null; }
     const key = cx + ',' + cy + ',' + scale;
     let c = this.chunks.get(key);
     if (!c) { c = this.renderChunk(cx, cy, scale); this.chunks.set(key, c); }
@@ -131,6 +133,18 @@ export class Renderer {
     for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (m.inBounds(x, y)) diamond(landPath, x, y, 0.5);
     ctx.save(); ctx.clip(landPath); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.5; ctx.fillStyle = ctx.createPattern(this.groundTexture(), 'repeat');
     ctx.translate(ox - (x0 - y0) * HW, oy - (x0 + y0) * HH); ctx.fillRect(-(ox - (x0 - y0) * HW) - 10, -(oy - (x0 + y0) * HH) - 10, w + 20, h + 20); ctx.restore();
+    // ---- pass 3b: painted ground textures from assets (per terrain class, world-anchored) ----
+    const texFor = (t, b) => t === T.DIRT ? art('tex_dirt') : t === T.FOREST ? (b < 0.5 ? art('tex_forest_elf') || art('tex_grass_elf') : art('tex_forest_blight') || art('tex_grass_blight')) : (t === T.GRASS ? (b < 0.4 ? art('tex_grass_elf') : b < 0.65 ? art('tex_grass_mid') || art('tex_grass_elf') : art('tex_grass_blight')) : null);
+    const groups = new Map();
+    for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
+      if (!m.inBounds(x, y)) continue; const i = m.idx(x, y); const tex = texFor(m.terrain[i], m.biome[i]); if (!tex) continue;
+      let pth = groups.get(tex); if (!pth) { pth = new Path2D(); groups.set(tex, pth); } diamond(pth, x, y, 1.2);
+    }
+    for (const [tex, pth] of groups) {
+      ctx.save(); ctx.clip(pth); ctx.globalAlpha = 0.85; const pat = ctx.createPattern(tex, 'repeat'); ctx.fillStyle = pat;
+      ctx.translate(ox - (x0 - y0) * HW, oy - (x0 + y0) * HH); const sc = 256 / tex.width; ctx.scale(sc, sc);
+      ctx.fillRect((-(ox - (x0 - y0) * HW) - 10) / sc, (-(oy - (x0 + y0) * HH) - 10) / sc, (w + 20) / sc, (h + 20) / sc); ctx.restore();
+    }
     // ---- pass 4: water ----
     const wv = makeCanvas(w, h); const wctx = wv.getContext('2d');
     for (let y = y0 - 1; y < y0 + CH + 1; y++) for (let x = x0 - 1; x < x0 + CH + 1; x++) {

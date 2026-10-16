@@ -5,6 +5,7 @@
 // =====================================================================
 import { TW, TH, HW, HH, makeCanvas, shade, rgba, mixHex, RNG, clamp } from './util.js';
 import { UNITS, BUILDING_ROLES } from './data.js';
+import { art, artTuning, ART } from './assets.js';
 
 export const S = 3;                       // supersampling factor for units
 const cache = new Map();
@@ -496,10 +497,12 @@ export const TREE_W = 72, TREE_H = 96, TREE_ANCHOR_Y = 86;
 export const TREE_VARIANTS = 8;
 export function treeSprite(style, variant) {
   const v = variant % TREE_VARIANTS;
-  const key = `tree|${style}|${v}`;
+  const key = `tree|${style}|${v}|${ART.version}`;
+  const img = art(`tree_${style}_${(v % 4) + 1}`) || art(`tree_${style}_1`);
   return cached(key, TREE_W * 1.5, TREE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5);
     ctx.translate(TREE_W / 2, TREE_ANCHOR_Y);
+    if (img) { const t = artTuning(`tree_${style}_${(v % 4) + 1}`); const sc = (t.scale ?? 1) * 80 / img.height; const w = img.width * sc, h = img.height * sc; const sg = ctx.createRadialGradient(2, 1, 1, 2, 1, 11); sg.addColorStop(0, 'rgba(0,0,0,0.35)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(2, 1, 11, 4.5, 0, 0, 7); ctx.fill(); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 3 + (t.dy || 0), w, h); return; }
     const rng = new RNG(v * 977 + style.length * 31 + 5);
     drawTree(ctx, style, rng);
   });
@@ -607,10 +610,12 @@ function drawTree(ctx, style, rng) {
 
 export const NODE_W = 64, NODE_H = 48, NODE_ANCHOR_Y = 40;
 export function nodeSprite(kind, variant) {
-  const key = `node|${kind}|${variant % 4}`;
+  const key = `node|${kind}|${variant % 4}|${ART.version}`;
+  const img = art(`node_${kind}`);
   return cached(key, NODE_W * 1.5, NODE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5); ctx.translate(NODE_W / 2, NODE_ANCHOR_Y);
     const rng = new RNG(variant * 131 + 7);
+    if (img) { const t = artTuning(`node_${kind}`); const sc = (t.scale ?? 1) * 40 / img.width; const w = img.width * sc, h = img.height * sc; const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 6.5, 0, 0, 7); ctx.fill(); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 6 + (t.dy || 0), w, h); return; }
     const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 6.5, 0, 0, 7); ctx.fill();
     if (kind === 'gold' || kind === 'stone') {
       const base = kind === 'gold' ? '#8a7a66' : '#8d8f8a';
@@ -650,7 +655,7 @@ export function buildingSprite(faction, role, stage /* 0..1 construction, 1 comp
   const def = BUILDING_ROLES[role];
   const s = def.size;
   const q = stage >= 1 ? 100 : Math.floor(stage * 10) * 10;        // quantise construction
-  const key = `b|${faction}|${role}|${q}|${variant}`;
+  const key = `b|${faction}|${role}|${q}|${variant}|${ART.version}`;
   const extra = role === 'tc' ? 150 : role === 'tower' ? 110 : role === 'shrine' ? 120 : 90;
   const w = s * TW + 40, h = s * TH + extra;
   return cached(key, w * BSCALE, h * BSCALE, (ctx) => {
@@ -659,8 +664,10 @@ export function buildingSprite(faction, role, stage /* 0..1 construction, 1 comp
     const P = (u, v, z = 0) => [(u - v) * HW, (u + v) * HH - s * HH - z];   // tile coords within footprint -> local px
     const rng = new RNG(variant * 53 + role.length);
     const ctxApi = { ctx, P, s, rng, faction, role };
-    if (q < 100) drawConstruction(ctxApi, q / 100, () => drawBuilding(ctxApi));
-    else drawBuilding(ctxApi);
+    const img = art(`b_${faction}_${role}`);
+    const drawFull = img ? () => drawArtBuilding(ctxApi, img, `b_${faction}_${role}`) : () => drawBuilding(ctxApi);
+    if (q < 100) drawConstruction(ctxApi, q / 100, drawFull);
+    else drawFull();
   });
 }
 
@@ -908,6 +915,16 @@ function drawConstruction(c, p, drawFull) {
   const [mx, my] = P(s * 0.3, s * 0.75, 0); logsPile(c, mx, my - 3, 2);
 }
 
+// --- image asset building: scaled so its width spans the footprint diamond, bottom aligned to the diamond's bottom corner ---
+function drawArtBuilding(c, img, key) {
+  const { ctx, P, s } = c; const t = artTuning(key);
+  const scale = (t.scale ?? 1) * (s * TW + 8) / img.width;
+  const w = img.width * scale, h = img.height * scale;
+  const [bx, by] = P(s, s, 0);                      // bottom corner of footprint
+  // ground shadow blob so the sprite sits in the scene
+  const [cx, cy] = P(s / 2, s / 2, 0); ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(cx, cy, s * HW * 0.9, s * HH * 0.9, 0, 0, 7); ctx.fill();
+  ctx.drawImage(img, bx - w / 2 + (t.dx || 0), by - h + (t.dy || 0), w, h);
+}
 // --- main dispatcher ---
 function drawBuilding(c) {
   const fn = c.faction === 'elves' ? ELF[c.role] : ORC[c.role];
@@ -1313,6 +1330,7 @@ export function drawIcon(canvas, kind, extra) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
+  const ai = art('icon_' + kind); if (ai) { ctx.drawImage(ai, 0, 0, w, h); return; }
   ctx.save(); ctx.translate(w / 2, h / 2); ctx.scale(w / 24, h / 24); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   switch (kind) {
     case 'food': ell(ctx, -1, 1, 7, 5.5, vgrad(ctx, 0, -5, 6, '#e07a4a', '#8a3a20'), OUT, 0.8); line(ctx, 5, -2, 9, -6, '#f0e8d0', 2.4); ell(ctx, 9.5, -6.5, 1.6, 1.6, '#f0e8d0'); break;
