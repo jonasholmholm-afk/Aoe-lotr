@@ -15,12 +15,18 @@
     "b_elves_tc.webp",
     "b_elves_tower.webp",
     "b_orcs_barracks.webp",
+    "b_orcs_farm.webp",
     "b_orcs_house.webp",
     "b_orcs_lumber.webp",
+    "b_orcs_mill.webp",
+    "b_orcs_mine.webp",
     "b_orcs_range.webp",
+    "b_orcs_shrine.webp",
+    "b_orcs_siege.webp",
     "b_orcs_smith.webp",
     "b_orcs_stable.webp",
     "b_orcs_tc.webp",
+    "b_orcs_tower.webp",
     "tree_blight_1.webp",
     "tree_mallorn_1.webp",
     "tree_mallorn_2.webp",
@@ -151,5 +157,35 @@
     "scale": 0.95,
     "keep": true,
     "dy": 2
+  },
+  "b_orcs_farm": {
+    "scale": 1.0,
+    "keep": true,
+    "dy": 0
+  },
+  "b_orcs_mill": {
+    "scale": 0.95,
+    "keep": true,
+    "dy": 2
+  },
+  "b_orcs_mine": {
+    "scale": 0.95,
+    "keep": true,
+    "dy": 2
+  },
+  "b_orcs_shrine": {
+    "scale": 0.92,
+    "keep": true,
+    "dy": 3
+  },
+  "b_orcs_siege": {
+    "scale": 0.92,
+    "keep": true,
+    "dy": 3
+  },
+  "b_orcs_tower": {
+    "scale": 1.25,
+    "keep": true,
+    "dy": 4
   }
 }
