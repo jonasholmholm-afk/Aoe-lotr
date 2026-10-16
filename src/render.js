@@ -472,6 +472,7 @@ export class Renderer {
     } else {
       // carried resource
       ctx.drawImage(sp, sx - w / 2 * z, sy - anchor * z + bob, w * z, h * z);
+      if (anim === 'walk' && (u.def.sprite.kind === 'mounted' || u.def.sprite.kind === 'giant') && Math.random() < 0.08) this.spawn('dust', u.x - u.fx * 0.3, u.y - u.fy * 0.3, 0.1, 1);
       if (u.carry && u.carry.amount > 2) this.drawCarry(u, sx, sy, flip, z);
       if (u.def.hero) { ctx.globalCompositeOperation = 'lighter'; const gr = ctx.createRadialGradient(sx, sy - 12 * z, 0, sx, sy - 12 * z, 22 * z); gr.addColorStop(0, 'rgba(255,230,150,0.18)'); gr.addColorStop(1, 'rgba(255,230,150,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sx, sy - 12 * z, 22 * z, 0, 7); ctx.fill(); }
     }

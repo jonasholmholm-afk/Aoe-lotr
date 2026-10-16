@@ -38,7 +38,7 @@ python3 -m http.server 8080
 - Procedurelt genererede kort i tre størrelser med flod, vadesteder, klipper, skove og to biomer (elverskov → ørkenlagt ødeland), kæmpeedderkopper i de mørke skove.
 - Tågekrig (fog of war), minikort, tårne, helte med regeneration, angrib-flyt, samlingspunkter, kø-produktion.
 - AI-modstander i tre sværhedsgrader med økonomistyring, byggerækkefølge, forskning, forsvar og angrebsbølger.
-- Procedurel grafik og lyd (ingen billed- eller lydfiler), dansk/engelsk.
+- Procedurel grafik og lyd (ingen billed- eller lydfiler), dansk/engelsk. Malerisk terræn med blomster, svampe, knogler og siv, løvrige træer med lysspil, teksturerede bygninger, dag/nat-cyklus med fakkel- og lanternelys, skyskygger, ildfluer og blodpøle.
 - Autosave (hvert 20. sekund, ved pause og når appen går i baggrunden) og "Fortsæt kamp" fra menuen.
 
 ## Struktur

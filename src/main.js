@@ -362,30 +362,46 @@ function initMenu() {
   window.addEventListener('pagehide', () => saveGame());
   startMenuBg();
 }
-// animated menu background: drifting isometric forest with motes
+// animated menu background: a twilight vista with both strongholds, drifting forest, motes and embers
 let menuAnim = null;
 function startMenuBg() {
   const c = $('#menu-bg'); const ctx = c.getContext('2d');
   const resize = () => { c.width = c.clientWidth * Math.min(2, devicePixelRatio); c.height = c.clientHeight * Math.min(2, devicePixelRatio); };
   resize(); window.addEventListener('resize', resize);
-  const trees = []; for (let i = 0; i < 40; i++) trees.push({ x: Math.random(), y: Math.random(), s: 0.6 + Math.random() * 0.8, style: i % 3 === 0 ? 'oak' : (Math.random() < 0.55 ? 'mallorn' : 'blight'), v: i });
+  const trees = []; for (let i = 0; i < 40; i++) { const y = 0.55 + Math.pow(Math.random(), 1.4) * 0.38; trees.push({ x: Math.random(), y, s: 0.5 + (y - 0.55) * 2.2 + Math.random() * 0.3, style: Math.random() < 0.5 ? 'mallorn' : (Math.random() < 0.55 ? 'blight' : (Math.random() < 0.5 ? 'oak' : 'pine')), v: i }); }
   trees.sort((a, b) => a.y - b.y);
-  const motes = []; for (let i = 0; i < 60; i++) motes.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.5 + 0.5, v: 0.02 + Math.random() * 0.04, p: Math.random() * 7 });
+  const motes = []; for (let i = 0; i < 70; i++) motes.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.5 + 0.5, v: 0.02 + Math.random() * 0.04, p: Math.random() * 7, ember: Math.random() < 0.4 });
+  const elfTC = buildingSprite('elves', 'tc', 1, 0), orcTC = buildingSprite('orcs', 'tc', 1, 0);
   let t0 = performance.now();
   const frame = (now) => {
     menuAnim = requestAnimationFrame(frame);
     const tt = (now - t0) / 1000; const W = c.width, H = c.height, k = W / 800;
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#07130b'); g.addColorStop(0.55, '#0e2416'); g.addColorStop(1, '#2a1a12');
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#060f0a'); g.addColorStop(0.45, '#0e2416'); g.addColorStop(0.75, '#1e2a16'); g.addColorStop(1, '#2a1a12');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // moon glow
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const mg = ctx.createRadialGradient(W * 0.75, H * 0.18, 0, W * 0.75, H * 0.18, W * 0.35); mg.addColorStop(0, 'rgba(200,230,255,0.22)'); mg.addColorStop(1, 'rgba(200,230,255,0)'); ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H); ctx.restore();
+    // stars & moon
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 40; i++) { const sx = ((i * 97) % 800) / 800 * W, sy = ((i * 61) % 300) / 800 * W * 0.5; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(tt * 0.7 + i)); ctx.fillRect(sx, sy, 1.5 * k, 1.5 * k); }
+    ctx.globalAlpha = 1;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const mg = ctx.createRadialGradient(W * 0.84, H * 0.06, 0, W * 0.84, H * 0.06, W * 0.3); mg.addColorStop(0, 'rgba(210,235,255,0.26)'); mg.addColorStop(1, 'rgba(200,230,255,0)'); ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H); ctx.restore();
+    ctx.fillStyle = '#e8f0f8'; ctx.beginPath(); ctx.arc(W * 0.84, H * 0.06, 18 * k, 0, 7); ctx.fill(); ctx.fillStyle = '#0a1a10'; ctx.beginPath(); ctx.arc(W * 0.84 + 7 * k, H * 0.06 - 5 * k, 15.5 * k, 0, 7); ctx.fill();
+    // distant ridge line
+    ctx.fillStyle = '#0a1a10'; ctx.beginPath(); ctx.moveTo(0, H * 0.58); for (let x = 0; x <= W; x += W / 24) ctx.lineTo(x, H * 0.58 - Math.abs(Math.sin(x / W * 9 + 1)) * H * 0.06 - Math.sin(x / W * 3) * H * 0.02); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    // strongholds on each flank
+    const bs = 0.9 * k;
+    ctx.globalAlpha = 0.9;
+    const portrait = H > W; const by = portrait ? H * 0.99 : H * 0.72;
+    ctx.drawImage(elfTC, W * 0.0 - elfTC.width / 1.5 * bs * 0.15, by - elfTC.height / 1.5 * bs, elfTC.width / 1.5 * bs, elfTC.height / 1.5 * bs);
+    ctx.drawImage(orcTC, W * 1.0 - orcTC.width / 1.5 * bs * 0.85, by + 10 * k - orcTC.height / 1.5 * bs, orcTC.width / 1.5 * bs, orcTC.height / 1.5 * bs);
+    ctx.globalAlpha = 1;
     for (const tr of trees) {
-      const sp = treeSprite(tr.style, tr.v); const sc = tr.s * k * 1.4; const x = ((tr.x + tt * 0.004 * tr.s) % 1.2 - 0.1) * W, y = tr.y * H;
-      ctx.globalAlpha = 0.35 + tr.y * 0.6; ctx.drawImage(sp, x - 36 * sc, y - 86 * sc, 72 * sc, 96 * sc);
+      const sp = treeSprite(tr.style, tr.v); const sc = tr.s * k * 1.5; const x = ((tr.x + tt * 0.004 * tr.s) % 1.2 - 0.1) * W, y = tr.y * H;
+      ctx.globalAlpha = 0.5 + (tr.y - 0.55) * 1.1; ctx.drawImage(sp, x - 36 * sc, y - 86 * sc, 72 * sc, 96 * sc);
     }
     ctx.globalAlpha = 1;
-    for (const m of motes) { const x = ((m.x + Math.sin(tt * 0.3 + m.p) * 0.02) % 1) * W, y = ((m.y - tt * m.v * 0.1) % 1 + 1) % 1 * H; ctx.fillStyle = `rgba(255,240,180,${0.3 + 0.5 * Math.sin(tt * 2 + m.p) ** 2})`; ctx.beginPath(); ctx.arc(x, y, m.r * k, 0, 7); ctx.fill(); }
-    ctx.fillStyle = 'rgba(4,8,5,0.35)'; ctx.fillRect(0, 0, W, H);
+    for (const m of motes) { const x = ((m.x + Math.sin(tt * 0.3 + m.p) * 0.02) % 1) * W, y = ((m.y - tt * m.v * 0.1) % 1 + 1) % 1 * H; const a = 0.3 + 0.5 * Math.sin(tt * 2 + m.p) ** 2; ctx.fillStyle = m.ember && x > W * 0.5 ? `rgba(255,140,60,${a})` : `rgba(255,240,180,${a})`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6 * k; ctx.beginPath(); ctx.arc(x, y, m.r * k, 0, 7); ctx.fill(); }
+    ctx.shadowBlur = 0;
+    // ground mist
+    const mist = ctx.createLinearGradient(0, H * 0.7, 0, H); mist.addColorStop(0, 'rgba(120,150,120,0)'); mist.addColorStop(1, 'rgba(120,150,120,0.18)'); ctx.fillStyle = mist; ctx.fillRect(0, H * 0.7, W, H * 0.3);
+    ctx.fillStyle = 'rgba(4,8,5,0.3)'; ctx.fillRect(0, 0, W, H);
   };
   if (menuAnim) cancelAnimationFrame(menuAnim);
   menuAnim = requestAnimationFrame(frame);
