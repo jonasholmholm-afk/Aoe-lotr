@@ -2,15 +2,25 @@
   "_comment": "files: liste over PNG-filer i denne mappe. Valgfri finjustering pr. billede: scale (1 = standard), dx/dy (pixelforskydning), tolerance (baggrundsfjernelse, standard 70), keep (true = behold baggrund).",
   "files": [
     "b_elves_barracks.webp",
+    "b_elves_farm.webp",
     "b_elves_house.webp",
+    "b_elves_lumber.webp",
+    "b_elves_mill.webp",
+    "b_elves_mine.webp",
     "b_elves_range.webp",
+    "b_elves_shrine.webp",
+    "b_elves_siege.webp",
     "b_elves_smith.webp",
     "b_elves_stable.webp",
     "b_elves_tc.webp",
+    "b_elves_tower.webp",
     "b_orcs_tc.webp",
     "tree_blight_1.webp",
     "tree_mallorn_1.webp",
-    "tree_oak_1.webp"
+    "tree_mallorn_2.webp",
+    "tree_oak_1.webp",
+    "tree_oak_2.webp",
+    "tree_pine_1.webp"
   ],
   "b_orcs_tc": {
     "scale": 0.88,
@@ -56,6 +66,53 @@
     "keep": true
   },
   "tree_blight_1": {
+    "scale": 1,
+    "keep": true
+  },
+  "b_elves_farm": {
+    "scale": 1.0,
+    "keep": true,
+    "dy": 0
+  },
+  "b_elves_lumber": {
+    "scale": 0.95,
+    "keep": true,
+    "dy": 2
+  },
+  "b_elves_mill": {
+    "scale": 0.95,
+    "keep": true,
+    "dy": 2
+  },
+  "b_elves_mine": {
+    "scale": 0.95,
+    "keep": true,
+    "dy": 2
+  },
+  "b_elves_tower": {
+    "scale": 1.25,
+    "keep": true,
+    "dy": 4
+  },
+  "b_elves_siege": {
+    "scale": 0.92,
+    "keep": true,
+    "dy": 3
+  },
+  "b_elves_shrine": {
+    "scale": 0.92,
+    "keep": true,
+    "dy": 3
+  },
+  "tree_pine_1": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_mallorn_2": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_oak_2": {
     "scale": 1,
     "keep": true
   }
