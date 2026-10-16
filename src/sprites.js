@@ -628,6 +628,8 @@ function cone(c, u, v, r, z0, z1, color) {
 function canopy(c, u, v, z, r, colors, rng) {
   const { ctx, P } = c;
   const [cx, cy] = P(u, v, z);
+  // soft dark underside
+  ell(ctx, cx, cy + r * 0.45, r * 1.25, r * 0.55, 'rgba(20,30,10,0.35)');
   const blobs = [[-0.6, 0.1, 0.75], [0.6, 0.0, 0.8], [0, -0.5, 0.85], [-0.2, 0.35, 0.6], [0.3, 0.3, 0.6]];
   for (const [bx, by, br] of blobs) {
     const x = cx + bx * r, y = cy + by * r * 0.8, rr = br * r;
@@ -684,6 +686,36 @@ function logsPile(c, x, y, n = 3) {
   for (let i = 0; i < n; i++) { const lx = x + (i % 2) * 3 - 1.5, ly = y - Math.floor(i / 2) * 3.2; rrect(ctx, lx - 8, ly - 1.7, 16, 3.4, 1.7, '#7a5a38', OUT, 0.5); ell(ctx, lx + 8, ly, 1.7, 1.7, '#c9a877', OUT, 0.4); }
 }
 
+// tapered trunk with bark texture; r0 bottom radius, r1 top radius (tile units)
+function trunk(c, u, v, r0, r1, z0, z1, color) {
+  const { ctx, P, rng } = c;
+  const [cx, cy0] = P(u, v, z0), [, cy1] = P(u, v, z1);
+  const rx0 = r0 * HW, ry0 = r0 * HH, rx1 = r1 * HW, ry1 = r1 * HH;
+  ctx.beginPath(); ctx.moveTo(cx - rx1, cy1); ctx.bezierCurveTo(cx - rx1, cy1 + (cy0 - cy1) * 0.5, cx - rx0 * 0.85, cy0 - 8, cx - rx0, cy0);
+  ctx.ellipse(cx, cy0, rx0, ry0, 0, Math.PI, 0, true); ctx.bezierCurveTo(cx + rx0 * 0.85, cy0 - 8, cx + rx1, cy1 + (cy0 - cy1) * 0.5, cx + rx1, cy1); ctx.closePath();
+  const g = ctx.createLinearGradient(cx - rx0, 0, cx + rx0, 0); g.addColorStop(0, shade(color, -0.15)); g.addColorStop(0.3, shade(color, 0.22)); g.addColorStop(0.6, color); g.addColorStop(1, shade(color, -0.5));
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.8; ctx.stroke();
+  ctx.save(); ctx.clip();
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 9; i++) {
+    const t = (i + 0.5) / 9; const xb = cx - rx0 + t * 2 * rx0, xt = cx - rx1 + t * 2 * rx1;
+    ctx.strokeStyle = i % 3 === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(40,30,20,0.25)';
+    ctx.beginPath(); ctx.moveTo(xb, cy0 + ry0); ctx.bezierCurveTo(xb + (rng.next() - 0.5) * 8, cy0 - (cy0 - cy1) * 0.3, xt + (rng.next() - 0.5) * 8, cy0 - (cy0 - cy1) * 0.7, xt, cy1); ctx.stroke();
+  }
+  // knots
+  for (let i = 0; i < 3; i++) { const kx = cx + (rng.next() - 0.5) * rx0 * 1.2, ky = cy1 + (cy0 - cy1) * rng.range(0.2, 0.8); ell(ctx, kx, ky, 2.2, 3, 'rgba(60,45,30,0.35)', 'rgba(40,30,20,0.4)', 0.6); }
+  ctx.restore();
+  ell(ctx, cx, cy1, rx1, ry1, shade(color, 0.3), OUT, 0.7);
+}
+// tapered branch from (x0,y0) to (x1,y1)
+function branch(ctx, x0, y0, x1, y1, w0, w1, color) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2 + 5;
+  ctx.beginPath(); ctx.moveTo(x0 + nx * w0, y0 + ny * w0); ctx.quadraticCurveTo(mx + nx * (w0 + w1) / 2, my + ny * (w0 + w1) / 2, x1 + nx * w1, y1 + ny * w1);
+  ctx.lineTo(x1 - nx * w1, y1 - ny * w1); ctx.quadraticCurveTo(mx - nx * (w0 + w1) / 2, my - ny * (w0 + w1) / 2, x0 - nx * w0, y0 - ny * w0); ctx.closePath();
+  const g = ctx.createLinearGradient(x0 + nx * w0, y0 + ny * w0, x0 - nx * w0, y0 - ny * w0); g.addColorStop(0, shade(color, 0.2)); g.addColorStop(1, shade(color, -0.45));
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 0.7; ctx.stroke();
+}
 // --- construction scaffolding ---
 function drawConstruction(c, p, drawFull) {
   const { ctx, P, s } = c;
@@ -729,11 +761,11 @@ const ELF = {
     for (let i = 0; i < 3; i++) { const [x, y] = P(3.4, 1.5 + i * 0.6, 12); rrect(ctx, x - 1.3, y - 3, 2.6, 5, 1.3, '#ffe9a0', '#7a6a40', 0.5); }
     // doorway with golden arch
     const [dx, dy] = P(2, 2.8, 0); ctx.beginPath(); ctx.moveTo(dx - 4, dy); ctx.lineTo(dx - 4, dy - 9); ctx.quadraticCurveTo(dx, dy - 15, dx + 4, dy - 9); ctx.lineTo(dx + 4, dy); ctx.closePath(); ctx.fillStyle = '#2a2a24'; ctx.fill(); ctx.strokeStyle = E.gold; ctx.lineWidth = 1.2; ctx.stroke();
-    // great mallorn trunk through the roof
-    cylinder(c, 2, 2, 0.55, 20, 85, E.trunk);
+    // great mallorn trunk through the roof (tapered, with bark and root flare)
+    trunk(c, 2, 2, 0.62, 0.42, 20, 88, E.trunk);
     // branches with flets (platforms)
     for (const [u, v, z, len] of [[1.1, 1.3, 70, 1], [3.0, 1.2, 78, 1], [1.4, 2.9, 62, 1]]) {
-      const [x0, y0] = P(2, 2, z - 6), [x1, y1] = P(u, v, z); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo((x0 + x1) / 2, y1 + 4, x1, y1); ctx.strokeStyle = E.trunk; ctx.lineWidth = 4; ctx.stroke();
+      const [x0, y0] = P(2, 2, z - 6), [x1, y1] = P(u, v, z); branch(ctx, x0, y0, x1, y1, 7, 3, E.trunk);
       // flet platform house
       const [fx, fy] = P(u, v, z); rrect(ctx, fx - 9, fy - 2, 18, 3, 1, E.woodD, OUT, 0.5);
       poly(ctx, [[fx - 7, fy - 2], [fx + 7, fy - 2], [fx + 7, fy - 9], [fx - 7, fy - 9]], E.wood, OUT, 0.5);
@@ -749,7 +781,7 @@ const ELF = {
   house(c) {
     const { ctx, P, s, rng } = c;
     isoDiamond(c, 0.1, 0.1, s - 0.1, s - 0.1, '#6f8f52', 'rgba(0,0,0,0.15)');
-    cylinder(c, 1, 1, 0.28, 0, 30, E.trunk);
+    trunk(c, 1, 1, 0.32, 0.22, 0, 30, E.trunk);
     const [fx, fy] = P(1, 1, 30);
     rrect(ctx, fx - 14, fy - 2, 28, 3.5, 1.5, E.woodD, OUT, 0.6);
     // small round house on the platform
@@ -861,7 +893,7 @@ const ELF = {
   tower(c) {
     const { ctx, P, s, rng } = c;
     isoDiamond(c, 0.05, 0.05, s - 0.05, s - 0.05, '#6f8f52', 'rgba(0,0,0,0.2)');
-    cylinder(c, 0.5, 0.5, 0.3, 0, 60, E.trunk);
+    trunk(c, 0.5, 0.5, 0.34, 0.22, 0, 60, E.trunk);
     const [px, py] = P(0.5, 0.5, 60); rrect(ctx, px - 13, py - 2, 26, 3.5, 1.5, E.woodD, OUT, 0.6);
     poly(ctx, [[px - 11, py - 2], [px + 11, py - 2], [px + 11, py - 9], [px - 11, py - 9]], E.wood, OUT, 0.6);
     for (let i = -8; i <= 8; i += 4) rrect(ctx, px + i - 1, py - 8, 2, 3, 0.5, '#2a2a24');
@@ -885,7 +917,7 @@ const ELF = {
     isoDiamond(c, 0.05, 0.05, s - 0.05, s - 0.05, '#5f8f52', 'rgba(0,0,0,0.2)');
     roots(c, 1.5, 1.5, 36, '#9a8a6a');
     for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.6; const [x, y] = P(1.5 + Math.cos(a) * 1.25, 1.5 + Math.sin(a) * 1.25, 0); poly(ctx, [[x - 2.5, y], [x + 2.5, y], [x + 2, y - 12], [x - 2, y - 11]], '#aab0a8', OUT, 0.6); }
-    cylinder(c, 1.5, 1.5, 0.5, 0, 46, '#8a7a60');
+    trunk(c, 1.5, 1.5, 0.58, 0.4, 0, 46, '#8a7a60');
     // face in the oak
     const [fx, fy] = P(1.5, 1.95, 22); ctx.fillStyle = '#9fe060'; ctx.shadowColor = '#9fe060'; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(fx - 4, fy, 1.4, 0, 7); ctx.arc(fx + 4, fy, 1.4, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     ctx.strokeStyle = '#3a2e22'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(fx - 4, fy + 7); ctx.quadraticCurveTo(fx, fy + 10, fx + 4, fy + 7); ctx.stroke();

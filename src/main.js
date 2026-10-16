@@ -252,11 +252,22 @@ function loop(now) {
     if (steps === 4) app.acc = 0;
   }
   processEvents();
+  tutorialTips();
   if (ctrl.marker) ctrl.marker.t += dt;
   ctrl.pruneSelection();
   renderer.draw(dt, { ghost: ctrl.ghost, dragBox: ctrl.dragBox, marker: ctrl.marker, selectedBuilding: ctrl.selectedBuilding });
   renderer.drawMinimap($('#minimap'), dt);
   ui.update(dt);
+}
+const TIPS = {
+  da: ['Tip: Tryk på en arbejder, og tryk derefter på et træ, bær eller en guldåre for at samle.', 'Tip: Markér bycenteret og træn flere arbejdere – økonomien vinder krigen.', 'Tip: Byg huse (Flet/Orkhytte) for at hæve befolkningsgrænsen.', 'Tip: Byg en lejr tæt på ressourcerne, så turen bliver kort.', 'Tip: Hold fingeren på jorden med hæren markeret for at angrib-flytte.', 'Tip: Avancér til næste tidsalder fra bycenteret, når du har to bygninger fra denne tidsalder.'],
+  en: ['Tip: Tap a worker, then tap a tree, bush or gold vein to gather.', 'Tip: Select the town center and train more workers – economy wins wars.', 'Tip: Build houses to raise your population cap.', 'Tip: Build a camp close to the resources to shorten the trip.', 'Tip: Hold your finger on the ground with your army selected to attack-move.', 'Tip: Advance to the next age from the town center once you own two buildings from this age.'],
+};
+function tutorialTips() {
+  if (!app || localStorage.getItem('rsl_tips_done') === '1') return;
+  const g = app.game; app.tipIdx = app.tipIdx || 0;
+  const times = [4, 40, 90, 150, 260, 380];
+  if (app.tipIdx < times.length && g.time >= times[app.tipIdx]) { app.ui.message(TIPS[lang][app.tipIdx], 'tip'); app.tipIdx++; if (app.tipIdx >= times.length) localStorage.setItem('rsl_tips_done', '1'); }
 }
 function processEvents() {
   const { game, renderer, ui, ctrl } = app;
@@ -267,8 +278,8 @@ function processEvents() {
       case 'fx': if (game.isVisible(e.x, e.y)) renderer.handleFx(e); break;
       case 'msg': if (e.owner === 0) { ui.message(e.key ? t(e.key) : tn(e.text), e.warn ? 'warn' : ''); if (e.warn) audio.play('error'); } break;
       case 'buildingDone': if (e.b.owner === 0) { ui.message(`${tn(e.b.name)} ${t('buildingDone')}`, 'good'); audio.play('done'); } break;
-      case 'buildingLost': if (e.owner === 0) { ui.message(`${tn(e.b.name)} ${lang === 'da' ? 'er ødelagt!' : 'has been destroyed!'}`, 'warn'); renderer.ping(e.b.x, e.b.y); } break;
-      case 'attacked': if (e.owner === 0) { ui.message(t('underAttack'), 'warn'); audio.play('horn'); renderer.ping(e.x, e.y); ctrl.lastAlert = { x: e.x, y: e.y }; } break;
+      case 'buildingLost': if (e.owner === 0) { ui.message(`${tn(e.b.name)} ${lang === 'da' ? 'er ødelagt!' : 'has been destroyed!'} ›`, 'warn', () => renderer.centerOn(e.b.x, e.b.y)); renderer.ping(e.b.x, e.b.y); } break;
+      case 'attacked': if (e.owner === 0) { ui.message(t('underAttack') + ' ›', 'warn', () => renderer.centerOn(e.x, e.y)); audio.play('horn'); renderer.ping(e.x, e.y); ctrl.lastAlert = { x: e.x, y: e.y }; } break;
       case 'age': if (e.owner === 0) { ui.message(`${t('ageReached')} ${t('age' + e.age)}!`, 'good'); audio.play('age'); } else { ui.message(`${t('enemyAge')} ${t('age' + e.age)}`, ''); } break;
       case 'tech': if (e.owner === 0) { ui.message(`${tn(TECHS[e.id].name)} ${t('researched')}`, 'good'); audio.play('tech'); } break;
       case 'unitReady': if (e.owner === 0 && e.u.def.cls !== 'villager') audio.play('done'); break;

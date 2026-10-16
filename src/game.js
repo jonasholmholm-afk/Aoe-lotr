@@ -769,6 +769,9 @@ export class Game {
     };
     for (const u of this.units) if (u.owner === 0 && !u.dead) reveal(u.x, u.y, this.stats(u).los);
     for (const b of this.buildings) if (b.owner === 0 && !b.dead) reveal(b.x, b.y, b.def.los + b.size / 2);
+    // end-game help: when the enemy is down to its last few buildings, mark them as explored so they can be found
+    const enemyLeft = this.buildings.filter(b => b.owner === 1 && !b.dead && b.role !== 'farm');
+    if (enemyLeft.length > 0 && enemyLeft.length <= 3 && this.time > 300) for (const b of enemyLeft) for (let y = 0; y < b.size; y++) for (let x = 0; x < b.size; x++) { const i = this.map.idx(b.tx + x, b.ty + y); if (fog[i] === 0) fog[i] = 1; }
     this.fogDirty = true;
   }
   isVisible(x, y) { const i = this.map.idx(x | 0, y | 0); return this.fog[i] === 2; }

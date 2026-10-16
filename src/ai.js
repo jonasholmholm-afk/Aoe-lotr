@@ -77,14 +77,16 @@ export class AI {
   }
   targetShares() {
     const p = this.p, age = p.age;
-    let s = age === 1 ? { food: 0.52, wood: 0.43, gold: 0.05, stone: 0 } : age === 2 ? { food: 0.42, wood: 0.30, gold: 0.23, stone: 0.05 } : { food: 0.40, wood: 0.25, gold: 0.28, stone: 0.07 };
+    let s = age === 1 ? { food: 0.52, wood: 0.43, gold: 0.05, stone: 0 } : age === 2 ? { food: 0.42, wood: 0.30, gold: 0.23, stone: 0.05 } : { food: 0.40, wood: 0.26, gold: 0.30, stone: 0.04 };
     s = { ...s };
+    if (p.faction === 'elves' && age >= 2) { s.gold += 0.08; s.wood -= 0.05; s.food -= 0.03; }   // elven army costs gold
     if (this.villagers.length < 7) { s.gold = 0; s.stone = 0; s.food = 0.55; s.wood = 0.45; }
     if (p.res.food < 120) { s.food += 0.1; s.wood -= 0.05; s.gold -= 0.05; }
     if (this.savingForAge) { s.food += 0.12; s.wood -= 0.12; }
     const farms = this.g.ownBuildings(this.idx, 'farm').length; s.wood += farms * 0.012; s.gold -= farms * 0.006;
     if (p.res.wood < 80) { s.wood += 0.1; s.food -= 0.05; s.gold -= 0.05; }
     if (p.res.gold > 450) { s.food += s.gold * 0.6; s.wood += s.gold * 0.4; s.gold = 0; }
+    else if (p.res.gold < 120 && p.age >= 2) { s.gold += 0.12; s.wood -= 0.06; s.food -= 0.06; }
     if (p.res.wood > 600) { s.food += s.wood * 0.6; s.wood *= 0.4; }
     if (p.res.stone > 250) { s.stone = 0; }
     // normalise
@@ -125,13 +127,16 @@ export class AI {
       return false;
     }
     if (res === 'wood') {
-      const camp = g.ownBuildings(this.idx, 'lumber').filter(b => b.complete)[0];
-      const from = camp || this.tc || { x: base.x, y: base.y };
-      const tree = g.nearestNode(from.x, from.y, 'tree', camp ? 7 : 16) || g.nearestNode(base.x, base.y, 'tree', 40, false);
+      const camps = g.ownBuildings(this.idx, 'lumber').filter(b => b.complete);
+      let tree = null;
+      for (const camp of camps) { const tr = g.nearestNode(camp.x, camp.y, 'tree', 7); if (tr && (!tree || tr.gatherers < tree.gatherers)) tree = tr; }
+      if (!tree) tree = g.nearestNode((this.tc || base).x, (this.tc || base).y, 'tree', 16) || g.nearestNode(base.x, base.y, 'tree', 40, false);
       if (tree) { g.cmdGather([v], tree); return true; }
       return false;
     }
-    const nd = g.nearestNode(base.x, base.y, res, 26) || g.nearestNode(base.x, base.y, res, 60, false);
+    let nd = null;
+    for (const camp of g.ownBuildings(this.idx, 'mine').filter(b => b.complete)) { const n2 = g.nearestNode(camp.x, camp.y, res, 6); if (n2 && (!nd || n2.gatherers < nd.gatherers)) nd = n2; }
+    if (!nd) nd = g.nearestNode(base.x, base.y, res, 26) || g.nearestNode(base.x, base.y, res, 60, false);
     if (nd) { g.cmdGather([v], nd); return true; }
     return false;
   }
@@ -170,6 +175,10 @@ export class AI {
     if (berry && c.food >= 2 && !g.ownBuildings(this.idx, 'mill').some(m => dist(m.x, m.y, berry.x, berry.y) < 6)) want.push({ role: 'mill', near: berry, r: 4, prio: 8 });
     const gold = g.nearestNode(this.base.x, this.base.y, 'gold', 26);
     if (gold && (c.gold >= 2 || p.age >= 2) && !g.ownBuildings(this.idx, 'mine').some(m => dist(m.x, m.y, gold.x, gold.y) < 6)) want.push({ role: 'mine', near: gold, r: 4, prio: 7 });
+    const gc = this.resCenter('gold');
+    if (gc && gc.n >= 2 && !g.ownBuildings(this.idx, 'mine').some(m => dist(m.x, m.y, gc.x, gc.y) < 6)) want.push({ role: 'mine', near: gc, r: 4, prio: 8 });
+    const woodC = this.resCenter('wood');
+    if (woodC && woodC.n >= 3 && !g.ownBuildings(this.idx, 'lumber').some(m => dist(m.x, m.y, woodC.x, woodC.y) < 7)) want.push({ role: 'lumber', near: woodC, r: 4, prio: 7 });
     const stone = g.nearestNode(this.base.x, this.base.y, 'stone', 26);
     if (stone && p.age >= 2 && c.stone >= 1 && !g.ownBuildings(this.idx, 'mine').some(m => dist(m.x, m.y, stone.x, stone.y) < 6)) want.push({ role: 'mine', near: stone, r: 4, prio: 5 });
     // farms: when berries are gone or late
@@ -204,10 +213,11 @@ export class AI {
       if (b) { this.lastBuildT = this.t; return; }
     }
   }
-  woodCenter() {
+  woodCenter() { return this.resCenter('wood'); }
+  resCenter(res) {
     let sx = 0, sy = 0, n = 0;
-    for (const v of this.villagers) if (v.gatherNode && v.gatherNode.kind === 'node' && v.gatherNode.res === 'wood') { sx += v.gatherNode.x; sy += v.gatherNode.y; n++; }
-    return n ? { x: sx / n, y: sy / n } : null;
+    for (const v of this.villagers) if (v.gatherNode && v.gatherNode.kind === 'node' && v.gatherNode.res === res) { sx += v.gatherNode.x; sy += v.gatherNode.y; n++; }
+    return n ? { x: sx / n, y: sy / n, n } : null;
   }
   findSpot(role, nx, ny, r) {
     const g = this.g, p = this.p, s = BUILDING_ROLES[role].size;
@@ -242,16 +252,19 @@ export class AI {
   // ------------------------------------------------------------------
   considerTechs() {
     const g = this.g, p = this.p;
-    if (Math.random() > this.cfg.techs) return;
+    this.techReserve = null;
+    if (Math.random() > this.cfg.techs + 0.2) return;
     const order = ['loom', 'double_axe', 'orchard', 'forging', 'fletching', 'scale_mail', 'gold_mining', 'barding', 'archer_armor', 'wheelbarrow', 'iron_casting', 'bodkin', 'chain_mail', p.faction === 'elves' ? 'elf_elite_arch' : 'orc_elite_inf', p.faction === 'elves' ? 'elf_elite_inf' : 'orc_elite_arch', p.faction === 'elves' ? 'starlight_arrows' : 'waaagh', 'stone_mining'];
     for (const id of order) {
       const t = TECHS[id]; if (!t || p.techs.has(id) || t.age > p.age) continue;
       if (t.req && !p.techs.has(t.req)) continue;
-      // keep a reserve for age-up / army
-      const reserve = this.savingForAge ? AGES[p.age].cost.food + 100 : (p.age < 3 && !p.ageUpInProgress ? 250 : 120);
-      if (p.res.food - (t.cost.food || 0) < reserve || p.res.gold - (t.cost.gold || 0) < 80) continue;
-      const b = this.buildingForTech(id); if (!b || b.queue.length) continue;
-      if (g.cmdResearch(b, id)) return;
+      const b = this.buildingForTech(id); if (!b) continue;
+      if (b.queue.length) return;                      // building busy: wait
+      if (this.savingForAge) return;                   // age-up has priority
+      if (g.canAfford(p, t.cost)) { g.cmdResearch(b, id); return; }
+      // save for it (unit production keeps this reserve) unless the army is tiny
+      if ((this.army && this.army.length >= 5) || this.t > 420) this.techReserve = t.cost;
+      return;
     }
   }
   buildingForTech(id) {
@@ -271,8 +284,9 @@ export class AI {
     const villShort = this.villagers.length < this.cfg.vill[p.age - 1] - 2;
     const saving = p.age < 3 && !p.ageUpInProgress && this.villagers.length >= this.cfg.vill[p.age - 1] - 4 && g.ageRequirementMet(p);
     this.savingForAge = saving;
-    const reserveFood = (villShort ? 100 : 0) + (saving ? AGES[p.age].cost.food : 0);
-    const reserveGold = saving ? (AGES[p.age].cost.gold || 0) : 0;
+    const tr = this.techReserve || {};
+    const reserveFood = (villShort ? 100 : 0) + (saving ? AGES[p.age].cost.food : 0) + (tr.food || 0);
+    const reserveGold = (saving ? (AGES[p.age].cost.gold || 0) : 0) + (tr.gold || 0);
     const underThreat = this.threatCount > 0;
     for (const b of prods) {
       const options = b.skin.trains.filter(id => { const d = UNITS[p.upgraded[id] || id]; if (d.cls === 'scout') return false; if (d.unique && (p.heroAlive || b.queue.length)) return false; return this.unitAgeOk(id); });
@@ -280,7 +294,7 @@ export class AI {
       // weighting: prefer counters to what enemy has
       const enemyArmy = g.ownUnits(this.enemy, u => u.isMilitary);
       const cav = enemyArmy.filter(u => u.def.cls === 'cavalry' || u.def.cls === 'cavalry_archer').length, arch = enemyArmy.filter(u => u.def.cls === 'archer').length, inf = enemyArmy.filter(u => u.def.cls === 'infantry').length;
-      const weights = options.map(id => { const d = UNITS[id]; let w = 1; if (d.cls === 'infantry' && d.bonus.cavalry) w += cav * 0.4; if (d.cls === 'cavalry') w += arch * 0.4; if (d.cls === 'archer') w += inf * 0.3; if (d.cls === 'siege') w = p.age >= 3 && army.length > 10 ? 1.5 : 0.3; if (d.cls === 'hero') w = 2.5; if (d.elite) w += 0.5; return w; });
+      const weights = options.map(id => { const d = UNITS[id]; let w = 1; if ((d.cost.gold || 0) > 0 && p.res.gold < 120) w *= 0.25; if (d.cls === 'infantry' && d.bonus.cavalry) w += cav * 0.4; if (d.cls === 'cavalry') w += arch * 0.4; if (d.cls === 'archer') w += inf * 0.3; if (d.cls === 'siege') w = p.age >= 3 && army.length > 10 ? 1.5 : 0.3; if (d.cls === 'hero') w = 2.5; if (d.elite) w += 0.5; return w; });
       let tot = weights.reduce((a, b) => a + b, 0), r = Math.random() * tot, pick = options[0];
       for (let i = 0; i < options.length; i++) { r -= weights[i]; if (r <= 0) { pick = options[i]; break; } }
       const cost = g.unitCost(p, p.upgraded[pick] || pick);

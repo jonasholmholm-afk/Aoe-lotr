@@ -94,8 +94,9 @@ export class Renderer {
       if (!m.inBounds(x, y)) continue;
       const t = m.terrain[m.idx(x, y)];
       ctx.beginPath(); diamond(ctx, x, y, 0.6);
-      ctx.fillStyle = (t === T.GRASS || t === T.FOREST || t === T.ROCK || t === T.DIRT) ? this.tileColor(x, y) : this.tileColor(x, y);
+      ctx.fillStyle = this.tileColor(x, y);
       if (t === T.ROCK) ctx.fillStyle = this.grassLike(x, y);
+      if (t === T.WATER || t === T.SHALLOW) ctx.fillStyle = mixHex(this.grassLike(x, y), '#c9b98a', 0.55);
       ctx.fill();
     }
     // pass 2: soft overlays (dirt, forest floor) via blur
@@ -115,15 +116,28 @@ export class Renderer {
       if (t === T.WATER || t === T.SHALLOW) { hasWater = true; wctx.beginPath(); diamond(wctx, x, y, 1.5); wctx.fillStyle = this.tileColor(x, y); wctx.fill(); if (x >= x0 && y >= y0 && x < x0 + CH && y < y0 + CH) diamond(waterPath, x, y, 1); }
     }
     if (hasWater) {
-      // sandy rim then water
-      ctx.save(); ctx.filter = 'blur(6px)'; ctx.globalAlpha = 0.7; ctx.drawImage(this.tinted(wv, '#c9b98a'), 0, 0); ctx.restore();
-      ctx.save(); ctx.filter = 'blur(2.5px)'; ctx.drawImage(wv, 0, 0); ctx.restore();
-      // deep centres
-      for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
+      // deep centres drawn into the same layer so the blur unifies them
+      for (let y = y0 - 1; y < y0 + CH + 1; y++) for (let x = x0 - 1; x < x0 + CH + 1; x++) {
         if (!m.inBounds(x, y) || m.terrain[m.idx(x, y)] !== T.WATER) continue;
-        let deep = true; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (m.terrainAt(x + dx, y + dy) !== T.WATER) deep = false;
-        if (deep) { const [ax, ay] = P(x, y); ctx.fillStyle = rgba('#163d5c', 0.45); ctx.beginPath(); ctx.ellipse(ax, ay + HH, HW * 0.9, HH * 0.9, 0, 0, 7); ctx.fill(); }
+        let deep = true; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (m.terrainAt(x + dx, y + dy) !== T.WATER) deep = false;
+        if (deep) { wctx.beginPath(); diamond(wctx, x, y, 0); wctx.fillStyle = COL.waterDeep; wctx.fill(); }
       }
+      // sandy rim, then softly blurred water body, then a crisper core
+      ctx.save(); ctx.filter = 'blur(7px)'; ctx.globalAlpha = 0.75; ctx.drawImage(this.tinted(wv, '#cdbd8e'), 0, 0); ctx.restore();
+      ctx.save(); ctx.filter = 'blur(5px)'; ctx.drawImage(wv, 0, 0); ctx.restore();
+      ctx.save(); ctx.filter = 'blur(2px)'; ctx.globalAlpha = 0.8; ctx.drawImage(wv, 0, 0); ctx.restore();
+      // foam line along shores
+      ctx.save(); ctx.filter = 'blur(1px)'; ctx.strokeStyle = 'rgba(230,245,255,0.35)'; ctx.lineWidth = 1.5;
+      for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
+        if (!m.inBounds(x, y)) continue; const t = m.terrain[m.idx(x, y)]; if (t !== T.WATER && t !== T.SHALLOW) continue;
+        const land = (tt) => tt !== T.WATER && tt !== T.SHALLOW;
+        const [ax, ay] = P(x, y);
+        if (land(m.terrainAt(x, y - 1))) { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + HW, ay + HH); ctx.stroke(); }
+        if (land(m.terrainAt(x - 1, y))) { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax - HW, ay + HH); ctx.stroke(); }
+        if (land(m.terrainAt(x + 1, y))) { ctx.beginPath(); ctx.moveTo(ax + HW, ay + HH); ctx.lineTo(ax, ay + TH); ctx.stroke(); }
+        if (land(m.terrainAt(x, y + 1))) { ctx.beginPath(); ctx.moveTo(ax - HW, ay + HH); ctx.lineTo(ax, ay + TH); ctx.stroke(); }
+      }
+      ctx.restore();
     }
     // pass 4: ground detail (tufts, flowers, pebbles, ash)
     for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
@@ -152,7 +166,7 @@ export class Renderer {
     cv.waterPath = waterPath; cv.hasWater = hasWater; cv.scale = scale; cv.ox = ox; cv.oy = oy;
     return cv;
   }
-  grassLike(x, y) { const m = this.map, b = m.biome[m.idx(x, y)]; return b < 0.5 ? '#5f9a45' : mixHex('#5c8f44', '#5a5f3a', (b - 0.5) * 2); }
+  grassLike(x, y) { const m = this.map, b = m.biome[m.idx(x, y)]; return b < 0.5 ? mixHex('#5f9a45', '#5c8f44', b * 2) : mixHex('#5c8f44', '#6a6e42', (b - 0.5) * 2); }
   tinted(src, color) { const c = makeCanvas(src.width, src.height); const x = c.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height); return c; }
   drawRock(ctx, cx, cy, b, rng) {
     const cols = b < 0.55 ? COL.rock : COL.rockBlight;
@@ -460,6 +474,14 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
   ambient(dt) {
+    // birds: occasional flock crossing the screen
+    this.birdT = (this.birdT || 8) - dt;
+    if (this.birdT <= 0) { this.birdT = 14 + Math.random() * 20; const n = 3 + (Math.random() * 4 | 0); const y = this.H * (0.15 + Math.random() * 0.5), dir = Math.random() < 0.5 ? 1 : -1; this.birds = []; for (let i = 0; i < n; i++) this.birds.push({ x: dir > 0 ? -40 - i * 18 : this.W + 40 + i * 18, y: y + (i % 2) * 9 + i * 3, dir, ph: Math.random() * 7, sp: 55 + Math.random() * 20 }); }
+    if (this.birds) {
+      const ctx = this.ctx; ctx.strokeStyle = 'rgba(20,20,25,0.75)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; let alive = false;
+      for (const b of this.birds) { b.x += b.dir * b.sp * dt; b.y -= dt * 2; if (b.x > -60 && b.x < this.W + 60) alive = true; const f = Math.sin(this.time * 9 + b.ph) * 3; ctx.beginPath(); ctx.moveTo(b.x - 5, b.y - f); ctx.quadraticCurveTo(b.x - 2, b.y + 1, b.x, b.y); ctx.quadraticCurveTo(b.x + 2, b.y + 1, b.x + 5, b.y - f); ctx.stroke(); }
+      if (!alive) this.birds = null;
+    }
     this.ambientT -= dt;
     if (this.ambientT > 0) return;
     this.ambientT = 0.12;

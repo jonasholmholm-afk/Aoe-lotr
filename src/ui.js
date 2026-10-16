@@ -172,8 +172,11 @@ export class UI {
     return btn;
   }
   // ------------------------------------------------------------------
-  message(text, kind = '') {
+  message(text, kind = '', onClick = null) {
+    const last = this.msgBox.lastElementChild;
+    if (last && last.textContent === text && !last.classList.contains('fade')) { last.remove(); }
     const el = document.createElement('div'); el.className = 'msg ' + kind; el.textContent = text; this.msgBox.appendChild(el);
+    if (onClick) { el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer'; el.onclick = onClick; }
     while (this.msgBox.children.length > 4) this.msgBox.firstChild.remove();
     setTimeout(() => el.classList.add('fade'), 4500); setTimeout(() => el.remove(), 5200);
   }
