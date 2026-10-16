@@ -8,7 +8,7 @@ import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
 import { STR, t, tn, lang, setLang } from './i18n.js';
-import { drawFactionEmblem, clearCache, treeSprite, unitSprite, buildingSprite } from './sprites.js';
+import { drawFactionEmblem, clearCache, treeSprite, unitSprite, buildingSprite, TREE_W, TREE_H, TREE_ANCHOR_Y } from './sprites.js';
 import { UNITS, BUILDING_ROLES, FACTIONS, AGES, TECHS } from './data.js';
 import { fmtTime, dist, clamp, HW, HH, TH } from './util.js';
 import { T } from './map.js';
@@ -397,7 +397,7 @@ function startMenuBg() {
     ctx.globalAlpha = 1;
     for (const tr of trees) {
       const sp = treeSprite(tr.style, tr.v); const sc = tr.s * k * 1.5; const x = ((tr.x + tt * 0.004 * tr.s) % 1.2 - 0.1) * W, y = tr.y * H;
-      ctx.globalAlpha = 0.5 + (tr.y - 0.55) * 1.1; ctx.drawImage(sp, x - 36 * sc, y - 86 * sc, 72 * sc, 96 * sc);
+      ctx.globalAlpha = 0.5 + (tr.y - 0.55) * 1.1; ctx.drawImage(sp, x - TREE_W / 2 * sc, y - TREE_ANCHOR_Y * sc, TREE_W * sc, TREE_H * sc);
     }
     ctx.globalAlpha = 1;
     for (const m of motes) { const x = ((m.x + Math.sin(tt * 0.3 + m.p) * 0.02) % 1) * W, y = ((m.y - tt * m.v * 0.1) % 1 + 1) % 1 * H; const a = 0.3 + 0.5 * Math.sin(tt * 2 + m.p) ** 2; ctx.fillStyle = m.ember && x > W * 0.5 ? `rgba(255,140,60,${a})` : `rgba(255,240,180,${a})`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6 * k; ctx.beginPath(); ctx.arc(x, y, m.r * k, 0, 7); ctx.fill(); }

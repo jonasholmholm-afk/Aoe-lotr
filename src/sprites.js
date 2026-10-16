@@ -493,7 +493,7 @@ function drawBeast(ctx, p, view, ph, def) {
 // ---------------------------------------------------------------------
 //  TREES & RESOURCE NODES   (anchor: bottom-centre = tile centre)
 // ---------------------------------------------------------------------
-export const TREE_W = 72, TREE_H = 96, TREE_ANCHOR_Y = 86;
+export const TREE_W = 112, TREE_H = 112, TREE_ANCHOR_Y = 102;
 export const TREE_VARIANTS = 8;
 export function treeSprite(style, variant) {
   const v = variant % TREE_VARIANTS;
