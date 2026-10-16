@@ -200,7 +200,13 @@ class Controller {
   }
   // ----- commands from UI -----
   stopSelected() { this.game.cmdStop(this.ownUnitsSelected()); audio.play('click'); }
-  deleteSelected() { for (const e of this.selection) if (e.owner === 0) this.game.cmdDelete(e); this.select([]); }
+  deleteSelected() {
+    // safety: confirm with a second tap within 2.5 s
+    const now = performance.now();
+    if (!this.deleteArmed || now - this.deleteArmed > 2500) { this.deleteArmed = now; this.ui.message(lang === 'da' ? 'Tryk igen for at nedlægge' : 'Tap again to disband', 'warn'); audio.play('click'); return; }
+    this.deleteArmed = 0;
+    for (const e of this.selection) if (e.owner === 0) this.game.cmdDelete(e); this.select([]);
+  }
   train(b, id) { if (!this.game.cmdTrain(b, id)) audio.play('error'); this.ui.refreshT = 0; }
   cancelQueue(b, id) { const i = b.queue.findIndex(q => q.id === id); if (i >= 0) { this.game.cmdCancelQueue(b, i); audio.play('click'); this.ui.refreshT = 0; } }
   research(b, id) { if (!this.game.cmdResearch(b, id)) audio.play('error'); this.ui.refreshT = 0; }
@@ -219,10 +225,24 @@ class Controller {
 // ---------------------------------------------------------------------
 //  App lifecycle
 // ---------------------------------------------------------------------
-function startGame() {
+const SAVE_KEY = 'rsl_save_v1';
+function saveGame() {
+  if (!app || app.game.over) return;
+  try { const data = app.game.serialize(); data.settings = { faction: settings.faction, difficulty: settings.difficulty, mapSize: settings.mapSize }; localStorage.setItem(SAVE_KEY, JSON.stringify(data)); app.lastSave = app.game.time; } catch (e) { console.warn('save failed', e); }
+}
+function loadSave() { try { const raw = localStorage.getItem(SAVE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+function clearSave() { localStorage.removeItem(SAVE_KEY); }
+function updateContinueButton() {
+  const data = loadSave(); const btn = $('#btn-continue');
+  if (!data) { btn.classList.add('hidden'); return; }
+  btn.classList.remove('hidden');
+  $('#continue-info').textContent = `${tn(FACTIONS[data.opts.playerFaction].name)} · ${t('age' + data.players[0].age)} · ${fmtTime(data.time)}`;
+}
+function startGame(saveData = null) {
   $('#menu').classList.add('hidden'); $('#hud').classList.remove('hidden'); $('#endscreen').classList.add('hidden');
   clearCache();
-  const game = new Game({ playerFaction: settings.faction, difficulty: settings.difficulty, mapSize: settings.mapSize });
+  if (saveData) { settings.faction = saveData.opts.playerFaction; settings.difficulty = saveData.opts.difficulty; settings.mapSize = saveData.opts.mapSize; }
+  const game = saveData ? Game.load(saveData) : new Game({ playerFaction: settings.faction, difficulty: settings.difficulty, mapSize: settings.mapSize });
   const canvas = $('#game');
   const renderer = new Renderer(canvas, game);
   const ui = new UI({ game, mode: 'normal', selection: [] });
@@ -231,7 +251,7 @@ function startGame() {
   const ai = new AI(game, 1);
   const tc = game.ownBuildings(0, 'tc')[0]; renderer.centerOn(tc.x, tc.y + 1.5);
   renderer.cam.zoom = window.innerWidth < 500 ? 0.95 : 1.1;
-  app = { game, renderer, ui, ctrl, input, ai, last: performance.now(), acc: 0, running: true, raf: 0 };
+  app = { game, renderer, ui, ctrl, input, ai, last: performance.now(), acc: 0, running: true, raf: 0, lastSave: game.time, tipIdx: saveData ? 99 : 0 };
   audio.init(); audio.startAmbient(settings.faction);
   // pre-warm a few sprites
   for (const id of [FACTIONS[settings.faction].villager, FACTIONS[settings.faction].scout]) unitSprite(UNITS[id], 'f', false, 'idle', 0);
@@ -253,6 +273,7 @@ function loop(now) {
   }
   processEvents();
   tutorialTips();
+  if (!game.over && game.time - app.lastSave > 20) saveGame();
   if (ctrl.marker) ctrl.marker.t += dt;
   ctrl.pruneSelection();
   renderer.draw(dt, { ghost: ctrl.ghost, dragBox: ctrl.dragBox, marker: ctrl.marker, selectedBuilding: ctrl.selectedBuilding });
@@ -288,7 +309,7 @@ function processEvents() {
     }
   }
 }
-function pause() { if (!app) return; app.ctrl.paused = true; $('#pause').classList.remove('hidden'); $('#btn-speed').textContent = STR[lang].speedLabel(settings.speed); $('#btn-sound').textContent = STR[lang].soundLabel(audio.enabled); $('#pause-stats').innerHTML = statsHtml(); }
+function pause() { if (!app) return; saveGame(); app.ctrl.paused = true; $('#pause').classList.remove('hidden'); $('#btn-speed').textContent = STR[lang].speedLabel(settings.speed); $('#btn-sound').textContent = STR[lang].soundLabel(audio.enabled); $('#pause-stats').innerHTML = statsHtml(); }
 function resume() { if (!app) return; app.ctrl.paused = false; $('#pause').classList.add('hidden'); app.last = performance.now(); }
 function statsHtml() {
   const p = app.game.players[0], e = app.game.players[1];
@@ -300,10 +321,12 @@ function endGame(won) {
   $('#end-text').textContent = won ? t('victoryText') : t('defeatText');
   $('#end-stats').innerHTML = statsHtml();
   $('#endscreen').classList.remove('hidden');
+  clearSave();
   audio.play(won ? 'victory' : 'defeat');
 }
 function quitToMenu() {
-  if (app) { cancelAnimationFrame(app.raf); audio.stopAmbient(); app = null; }
+  if (app) { saveGame(); cancelAnimationFrame(app.raf); audio.stopAmbient(); app = null; }
+  updateContinueButton();
   $('#hud').classList.add('hidden'); $('#pause').classList.add('hidden'); $('#endscreen').classList.add('hidden'); $('#menu').classList.remove('hidden');
   document.documentElement.removeAttribute('data-faction');
   startMenuBg();
@@ -323,17 +346,20 @@ function initMenu() {
   document.querySelectorAll('.faction-emblem').forEach(c => drawFactionEmblem(c, c.closest('.faction-card').dataset.faction));
   document.querySelectorAll('.faction-card').forEach(card => card.onclick = () => { document.querySelectorAll('.faction-card').forEach(c => c.classList.remove('selected')); card.classList.add('selected'); settings.faction = card.dataset.faction; audio.init(); audio.play('select'); });
   for (const [id, key] of [['#difficulty', 'difficulty'], ['#mapsize', 'mapSize']]) document.querySelectorAll(id + ' button').forEach(b => b.onclick = () => { document.querySelectorAll(id + ' button').forEach(x => x.classList.remove('selected')); b.classList.add('selected'); settings[key] = b.dataset.v; audio.init(); audio.play('click'); });
-  $('#btn-start').onclick = () => { audio.init(); audio.play('horn'); stopMenuBg(); startGame(); };
+  $('#btn-start').onclick = () => { audio.init(); audio.play('horn'); stopMenuBg(); clearSave(); startGame(); };
+  $('#btn-continue').onclick = () => { const d = loadSave(); if (!d) return; audio.init(); audio.play('horn'); stopMenuBg(); try { startGame(d); } catch (e) { console.error(e); clearSave(); startGame(); } };
+  updateContinueButton();
   $('#btn-help').onclick = () => { $('#help').classList.remove('hidden'); };
   $('#btn-help-close').onclick = () => { $('#help').classList.add('hidden'); };
   $('#btn-lang').onclick = () => { setLang(lang === 'da' ? 'en' : 'da'); applyLang(); };
   $('#btn-resume').onclick = resume;
   $('#btn-speed').onclick = () => { settings.speed = settings.speed >= 2 ? 1 : settings.speed === 1 ? 1.5 : 2; localStorage.setItem('rsl_speed', settings.speed); $('#btn-speed').textContent = STR[lang].speedLabel(settings.speed); };
   $('#btn-sound').onclick = () => { audio.setEnabled(!audio.enabled); $('#btn-sound').textContent = STR[lang].soundLabel(audio.enabled); };
-  $('#btn-restart').onclick = () => { quitToMenu(); stopMenuBg(); startGame(); };
+  $('#btn-restart').onclick = () => { quitToMenu(); clearSave(); stopMenuBg(); startGame(); };
   $('#btn-quit').onclick = quitToMenu;
   $('#btn-end-menu').onclick = quitToMenu;
-  document.addEventListener('visibilitychange', () => { if (document.hidden && app && !app.ctrl.paused && !app.game.over) pause(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && app) { saveGame(); if (!app.ctrl.paused && !app.game.over) pause(); } });
+  window.addEventListener('pagehide', () => saveGame());
   startMenuBg();
 }
 // animated menu background: drifting isometric forest with motes

@@ -28,6 +28,7 @@ export class UI {
     const mmHandler = (e) => { e.preventDefault(); const r = mm.getBoundingClientRect(); this.ctrl.onMinimap(e.clientX - r.left, e.clientY - r.top); };
     mm.addEventListener('pointerdown', mmHandler); mm.addEventListener('pointermove', e => { if (e.buttons) mmHandler(e); });
     this.placeBar = $('#place-bar');
+    $('#sel-portrait').addEventListener('pointerup', () => { if (this.ctrl.selection.length) this.ctrl.select([]); });
     document.documentElement.setAttribute('data-faction', this.game.players[0].faction);
   }
   update(dt) {

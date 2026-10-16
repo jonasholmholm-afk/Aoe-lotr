@@ -3,7 +3,7 @@ export const STR = {
     eyebrow: 'Et realtidsstrategispil', subtitle: 'Athel Loren mod Mordors horder',
     chooseFaction: 'Vælg dit folk', difficulty: 'Modstander', mapSize: 'Kort',
     easy: 'Let', normal: 'Normal', hard: 'Svær', small: 'Lille', medium: 'Mellem', large: 'Stort',
-    start: 'Drag i krig', howTo: 'Sådan spiller du', close: 'Luk', place: 'Byg her', cancel: 'Afbryd',
+    start: 'Drag i krig', continueGame: 'Fortsæt kamp', howTo: 'Sådan spiller du', saved: 'Spillet er gemt', close: 'Luk', place: 'Byg her', cancel: 'Afbryd',
     paused: 'Pause', resume: 'Fortsæt', restart: 'Genstart kamp', quit: 'Til hovedmenu',
     speed: 'Hastighed', sound: 'Lyd', on: 'Til', off: 'Fra',
     elfDesc: 'Athel Lorens skovvogtere. Hurtige, dødbringende bueskytter og ældgamle trævæsner.',
@@ -38,7 +38,8 @@ export const STR = {
 <li><b>Hold</b> fingeren på jorden med militær markeret = angrib-flyt (angriber alt på vejen). Med en bygning markeret = sæt samlingspunkt.</li>
 <li>Knappen <b>Markér</b> (venstre side) lader dig trække en boks omkring dine enheder.</li>
 <li>Knappen med arbejderen vælger en <b>ledig arbejder</b>. Hjelmen vælger hele hæren. Tårnet hopper til bycenteret.</li>
-<li>Tryk på <b>minikortet</b> for at flytte kameraet.</li>
+<li>Tryk på <b>minikortet</b> for at flytte kameraet. Tryk på <b>portrættet</b> nederst til venstre for at fravælge.</li>
+<li>Spillet <b>gemmes automatisk</b> – vælg "Fortsæt kamp" i hovedmenuen for at spille videre.</li>
 </ul>
 <h3>Økonomi</h3>
 <p>Arbejdere samler <b>mad</b> (bær, vildt, marker), <b>træ</b> (skov), <b>guld</b> og <b>sten</b> (miner). Byg lejre tæt på ressourcerne, så turen bliver kort. Hvert hus giver plads til flere enheder.</p>
@@ -51,7 +52,7 @@ export const STR = {
     eyebrow: 'A real-time strategy game', subtitle: 'Athel Loren against the hordes of Mordor',
     chooseFaction: 'Choose your people', difficulty: 'Opponent', mapSize: 'Map',
     easy: 'Easy', normal: 'Normal', hard: 'Hard', small: 'Small', medium: 'Medium', large: 'Large',
-    start: 'To War', howTo: 'How to play', close: 'Close', place: 'Build here', cancel: 'Cancel',
+    start: 'To War', continueGame: 'Continue battle', howTo: 'How to play', saved: 'Game saved', close: 'Close', place: 'Build here', cancel: 'Cancel',
     paused: 'Paused', resume: 'Resume', restart: 'Restart battle', quit: 'Main menu',
     speed: 'Speed', sound: 'Sound', on: 'On', off: 'Off',
     elfDesc: 'Wardens of Athel Loren. Swift, deadly archers and ancient tree-kin.',
@@ -86,7 +87,8 @@ export const STR = {
 <li><b>Hold</b> on the ground with military selected = attack-move. With a building selected = set rally point.</li>
 <li>The <b>Select</b> button (left) lets you drag a box around your units.</li>
 <li>The worker button selects an <b>idle worker</b>. The helmet selects your whole army. The tower jumps to your town center.</li>
-<li>Tap the <b>minimap</b> to move the camera.</li>
+<li>Tap the <b>minimap</b> to move the camera. Tap the <b>portrait</b> at the bottom left to deselect.</li>
+<li>The game <b>saves automatically</b> – choose "Continue battle" in the main menu to resume.</li>
 </ul>
 <h3>Economy</h3>
 <p>Workers gather <b>food</b> (berries, game, farms), <b>wood</b> (forests), <b>gold</b> and <b>stone</b> (mines). Build camps close to resources. Each house raises your population cap.</p>

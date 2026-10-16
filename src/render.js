@@ -299,7 +299,7 @@ export class Renderer {
     if (b.complete && b.hp < b.maxHp * 0.5 && visible && Math.random() < dt60(0.25)) this.spawn('smoke', b.x + (Math.random() - 0.5) * b.size * 0.6, b.y + (Math.random() - 0.5) * b.size * 0.6, 1.2 + Math.random());
     if (b.complete && b.hp < b.maxHp * 0.25 && visible && Math.random() < dt60(0.2)) this.spawn('fire', b.x + (Math.random() - 0.5) * b.size * 0.6, b.y + (Math.random() - 0.5) * b.size * 0.6, 0.6);
     // production indicator
-    if (b.owner === 0 && b.queue.length && b.complete && !b.selected) { const q = b.queue[0]; const k = q.t / q.total; const bw = 34 * z; const py = sy - Math.min((h - b.size * HH - 8) * z, (b.size * TH + 70) * z) - 6 * z; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - bw / 2, py, bw, 4 * z); ctx.fillStyle = '#d9b857'; ctx.fillRect(sx - bw / 2, py, bw * k, 4 * z); }
+    if (b.owner === 0 && b.queue.length && b.complete && !b.selected) { const q = b.queue[0]; const k = q.t / q.total; const bw = 34 * z; const py = sy - (h - b.size * HH - 8 - spriteTop(sp) / BSCALE) * z - 8 * z; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(sx - bw / 2, py, bw, 4 * z); ctx.fillStyle = '#d9b857'; ctx.fillRect(sx - bw / 2, py, bw * k, 4 * z); }
   }
   drawUnit(u) {
     const ctx = this.ctx, z = this.cam.zoom;
@@ -356,8 +356,8 @@ export class Renderer {
       const show = e.selected || (e.hp < e.maxHp && e.complete && g.time - e.lastHitT < 8) || !e.complete;
       if (!show || !this.game.isExplored(e.x, e.y)) return;
       const { sx, sy } = this.worldToScreen(e.x, e.y);
-      const sp = buildingSprite(e.faction, e.role, 1, e.variant); const top = (sp.height / BSCALE - e.size * HH - 8) * z;
-      const by = sy - Math.min(top, (e.size * TH + 70) * z) - 6 * z;
+      const sp = buildingSprite(e.faction, e.role, 1, e.variant); const top = (sp.height / BSCALE - e.size * HH - 8 - spriteTop(sp) / BSCALE) * z;
+      const by = sy - top - 8 * z;
       if (!e.complete) this.bar(sx, by, 40 * z, e.progress, e.owner, '#d9b857');
       else this.bar(sx, by, 40 * z, e.hp / e.maxHp, e.owner);
     }
@@ -550,3 +550,13 @@ export class Renderer {
   ping(x, y) { this.flashes.push({ x, y, t: 0 }); }
 }
 function dt60(p) { return p / 60 * 4; }
+// first non-transparent row of a sprite canvas (cached on the canvas)
+function spriteTop(sp) {
+  if (sp._top !== undefined) return sp._top;
+  try {
+    const d = sp.getContext('2d').getImageData(0, 0, sp.width, sp.height).data;
+    let top = 0; outer: for (let y = 0; y < sp.height; y += 2) { for (let x = 3; x < sp.width; x += 4) if (d[(y * sp.width + x) * 4 + 3] > 20) { top = y; break outer; } }
+    sp._top = top;
+  } catch (e) { sp._top = 0; }
+  return sp._top;
+}

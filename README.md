@@ -39,6 +39,7 @@ python3 -m http.server 8080
 - Tågekrig (fog of war), minikort, tårne, helte med regeneration, angrib-flyt, samlingspunkter, kø-produktion.
 - AI-modstander i tre sværhedsgrader med økonomistyring, byggerækkefølge, forskning, forsvar og angrebsbølger.
 - Procedurel grafik og lyd (ingen billed- eller lydfiler), dansk/engelsk.
+- Autosave (hvert 20. sekund, ved pause og når appen går i baggrunden) og "Fortsæt kamp" fra menuen.
 
 ## Struktur
 ```

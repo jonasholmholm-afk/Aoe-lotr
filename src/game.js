@@ -776,6 +776,54 @@ export class Game {
   }
   isVisible(x, y) { const i = this.map.idx(x | 0, y | 0); return this.fog[i] === 2; }
   isExplored(x, y) { const i = this.map.idx(x | 0, y | 0); return this.fog[i] >= 1; }
+  // ------------------------------------------------------------------
+  //  Save / load
+  // ------------------------------------------------------------------
+  serialize() {
+    const bIndex = new Map(); this.buildings.forEach((b, i) => bIndex.set(b, i));
+    const ref = (t) => { if (!t || t.dead) return null; if (t.kind === 'node') return { n: [t.tx, t.ty] }; if (t.kind === 'building') return { b: bIndex.get(t) }; return null; };
+    const rle = (arr) => { const out = []; let v = arr[0], c = 0; for (const x of arr) { if (x === v) c++; else { out.push(v, c); v = x; c = 1; } } out.push(v, c); return out; };
+    return {
+      v: 1, seed: this.seed, opts: this.opts, time: this.time,
+      players: this.players.map(p => ({ res: p.res, age: p.age, techs: [...p.techs], stats: p.stats, heroAlive: p.heroAlive, ageUpInProgress: p.ageUpInProgress, lastAttackedAlert: p.lastAttackedAlert })),
+      nodes: this.nodes.filter(n => !n.dead).map(n => [n.nodeKind, n.tx, n.ty, Math.round(n.amount), n.variant, +n.x.toFixed(2), +n.y.toFixed(2)]),
+      buildings: this.buildings.filter(b => !b.dead).map(b => ({ role: b.role, o: b.owner, tx: b.tx, ty: b.ty, hp: Math.round(b.hp), prog: +b.progress.toFixed(3), complete: b.complete, queue: b.queue.map(q => ({ ...q })), rally: b.rally ? { x: b.rally.x, y: b.rally.y, target: ref(b.rally.target) } : null, farmFood: Math.round(b.farmFood), variant: b.variant })),
+      units: this.units.filter(u => !u.dead).map(u => ({ d: u.def.id, o: u.owner, x: +u.x.toFixed(2), y: +u.y.toFixed(2), hp: Math.round(u.hp), st: u.state, tx: +u.tx.toFixed(2), ty: +u.ty.toFixed(2), g: ref(u.gatherNode), b: u.buildTarget ? ref(u.buildTarget) : null, am: u.attackMove, carry: u.carry, hx: +u.homeX.toFixed(1), hy: +u.homeY.toFixed(1), fx: +u.fx.toFixed(2), fy: +u.fy.toFixed(2) })),
+      fog: rle(this.fog), decals: this.decals.map(d => ({ x: d.x, y: d.y, size: d.size, t: d.t, variant: d.variant })),
+    };
+  }
+  static load(data) {
+    const g = new Game({ ...data.opts, seed: data.seed });
+    // wipe generated world
+    g.entities.clear(); g.units = []; g.buildings = []; g.nodes = []; g.projectiles = [];
+    g.map.blocked.fill(0); g.map.occupant.fill(0);
+    g.time = data.time;
+    data.players.forEach((sp, i) => { const p = g.players[i]; p.res = { ...sp.res }; p.age = sp.age; p.stats = { ...sp.stats }; p.heroAlive = sp.heroAlive; p.ageUpInProgress = sp.ageUpInProgress; p.lastAttackedAlert = sp.lastAttackedAlert ?? -99; p.techs = new Set(); p.mods = defaultMods(); for (const id of sp.techs) { const t = TECHS[id]; if (!t) continue; p.techs.add(id); if (t.apply) t.apply(p.mods); if (t.upgrade) p.upgraded[t.upgrade[0]] = t.upgrade[1]; } });
+    for (const [kind, tx, ty, amount, variant, x, y] of data.nodes) { const nd = new Node(kind, tx, ty, amount, variant, g.map.biome[g.map.idx(tx, ty)]); if (kind === 'carcass') { nd.x = x; nd.y = y; } g.addNode(nd); }
+    // forest tiles without a tree become grass
+    for (let i = 0; i < g.map.terrain.length; i++) if (g.map.terrain[i] === T.FOREST && !g.map.blocked[i]) g.map.terrain[i] = T.GRASS;
+    const bs = [];
+    for (const sb of data.buildings) { const b = new Building(sb.role, sb.o, g.players[sb.o].faction, sb.tx, sb.ty); b.hp = sb.hp; b.progress = sb.prog; b.complete = sb.complete; b.queue = sb.queue.map(q => ({ ...q })); b.farmFood = sb.farmFood; b.variant = sb.variant; g.addBuilding(b); bs.push(b); }
+    const deref = (r) => { if (!r) return null; if (r.n) { const e = g.entityAtTile(r.n[0], r.n[1]); if (e && e.kind === 'node') return e; return g.nodes.find(n => n.tx === r.n[0] && n.ty === r.n[1]) || null; } if (r.b !== undefined) return bs[r.b] || null; return null; };
+    data.buildings.forEach((sb, i) => { if (sb.rally) bs[i].rally = { x: sb.rally.x, y: sb.rally.y, target: deref(sb.rally.target) || undefined }; });
+    for (const su of data.units) {
+      if (!UNITS[su.d]) continue;
+      const u = new Unit(su.d, su.o, su.x, su.y); u.hp = su.hp; u.homeX = su.hx; u.homeY = su.hy; u.fx = su.fx; u.fy = su.fy; u.carry = su.carry || null;
+      g.addUnit(u);
+      if (su.o === -1) { u.state = 'wander'; continue; }
+      const gn = deref(su.g), bt = deref(su.b);
+      if ((su.st === 'gather' || su.st === 'return') && gn) { u.gatherNode = gn; if (gn.kind === 'node') gn.gatherers++; u.state = su.st; }
+      else if (su.st === 'build' && bt && !bt.complete) { u.buildTarget = bt; bt.builders++; u.state = 'build'; }
+      else if (su.st === 'move' || su.st === 'attack' || su.st === 'flee') { u.state = 'move'; u.attackMove = su.am || null; g.setMoveTarget(u, su.am ? su.am.x : su.tx, su.am ? su.am.y : su.ty); }
+      else if (u.carry && u.carry.amount > 0) u.state = 'return';
+      else u.state = 'idle';
+    }
+    // fog
+    const f = data.fog; let k = 0; for (let i = 0; i < f.length; i += 2) { const v = f[i], c = f[i + 1]; for (let j = 0; j < c && k < g.fog.length; j++) g.fog[k++] = v; }
+    g.decals = (data.decals || []).map(d => ({ ...d }));
+    g.recountPop(); g.updateFog(); g.fogDirty = true;
+    return g;
+  }
   // ------------- victory -------------
   checkVictory() {
     for (const p of this.players) {
