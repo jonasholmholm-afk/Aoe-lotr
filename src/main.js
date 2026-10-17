@@ -419,5 +419,5 @@ function stopMenuBg() { if (menuAnim) cancelAnimationFrame(menuAnim); menuAnim =
 
 initMenu();
 loadArt(() => { clearCache(); if (app) { app.ui.sig = ''; } });
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
 window.__app = () => app;
