@@ -380,7 +380,13 @@ function startMenuBg() {
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#060f0a'); g.addColorStop(0.45, '#0e2416'); g.addColorStop(0.75, '#1e2a16'); g.addColorStop(1, '#2a1a12');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     const bgImg = art('menu_bg');
-    if (bgImg) { const sc = Math.max(W / bgImg.width, H / bgImg.height); const dw = bgImg.width * sc, dh = bgImg.height * sc; ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh); ctx.fillStyle = 'rgba(4,8,5,0.35)'; ctx.fillRect(0, 0, W, H); }
+    if (bgImg) {
+      const sc = Math.max(W / bgImg.width, H / bgImg.height); const dw = bgImg.width * sc, dh = bgImg.height * sc;
+      ctx.drawImage(bgImg, (W - dw) / 2 + Math.sin(tt * 0.05) * 6 * k, (H - dh) / 2, dw, dh);
+      const dg = ctx.createLinearGradient(0, 0, 0, H); dg.addColorStop(0, 'rgba(4,8,5,0.55)'); dg.addColorStop(0.35, 'rgba(4,8,5,0.25)'); dg.addColorStop(0.7, 'rgba(4,8,5,0.45)'); dg.addColorStop(1, 'rgba(4,8,5,0.7)'); ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+      for (const m of motes) { const x = ((m.x + Math.sin(tt * 0.3 + m.p) * 0.02) % 1) * W, y = ((m.y - tt * m.v * 0.1) % 1 + 1) % 1 * H; const a = 0.3 + 0.5 * Math.sin(tt * 2 + m.p) ** 2; ctx.fillStyle = m.ember && x > W * 0.5 ? `rgba(255,140,60,${a})` : `rgba(255,240,180,${a})`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6 * k; ctx.beginPath(); ctx.arc(x, y, m.r * k, 0, 7); ctx.fill(); }
+      ctx.shadowBlur = 0; return;
+    }
     // stars & moon
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 40; i++) { const sx = ((i * 97) % 800) / 800 * W, sy = ((i * 61) % 300) / 800 * W * 0.5; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(tt * 0.7 + i)); ctx.fillRect(sx, sy, 1.5 * k, 1.5 * k); }
     ctx.globalAlpha = 1;

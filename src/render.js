@@ -107,6 +107,9 @@ export class Renderer {
     const waterPath = new Path2D(); let hasWater = false;
     const diamond = (ctxOrPath, x, y, grow = 0) => { const [ax, ay] = P(x, y); ctxOrPath.moveTo(ax, ay - grow); ctxOrPath.lineTo(ax + HW + grow, ay + HH); ctxOrPath.lineTo(ax, ay + TH + grow); ctxOrPath.lineTo(ax - HW - grow, ay + HH); ctxOrPath.closePath(); };
     const landLike = (t) => t === T.GRASS || t === T.FOREST || t === T.ROCK || t === T.DIRT;
+    const landPath = new Path2D();
+    for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (m.inBounds(x, y)) diamond(landPath, x, y, 1.5);
+    ctx.save(); ctx.clip(landPath);
     // ---- pass 1: smooth colour field (tiles drawn with overlap, then blurred) ----
     const base = makeCanvas(w, h); const bctx = base.getContext('2d');
     for (let y = y0 - 1; y < y0 + CH + 1; y++) for (let x = x0 - 1; x < x0 + CH + 1; x++) {
@@ -128,22 +131,34 @@ export class Renderer {
       if (t === T.DIRT || t === T.FOREST) { anyOv = true; octx.beginPath(); diamond(octx, x, y, 2.5); octx.fillStyle = this.tileColor(x, y); octx.fill(); }
     }
     if (anyOv) { ctx.save(); ctx.filter = 'blur(6px)'; ctx.drawImage(ov, 0, 0); ctx.restore(); }
-    // ---- pass 3: texture overlay (clipped to this chunk's tiles, pattern anchored in world space) ----
-    const landPath = new Path2D();
-    for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (m.inBounds(x, y)) diamond(landPath, x, y, 0.5);
-    ctx.save(); ctx.clip(landPath); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.5; ctx.fillStyle = ctx.createPattern(this.groundTexture(), 'repeat');
+    // ---- pass 3: texture overlay (pattern anchored in world space) ----
+    ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = art('tex_grass_elf') ? 0.22 : 0.5; ctx.fillStyle = ctx.createPattern(this.groundTexture(), 'repeat');
     ctx.translate(ox - (x0 - y0) * HW, oy - (x0 + y0) * HH); ctx.fillRect(-(ox - (x0 - y0) * HW) - 10, -(oy - (x0 + y0) * HH) - 10, w + 20, h + 20); ctx.restore();
-    // ---- pass 3b: painted ground textures from assets (per terrain class, world-anchored) ----
-    const texFor = (t, b) => t === T.DIRT ? art('tex_dirt') : t === T.FOREST ? (b < 0.5 ? art('tex_forest_elf') || art('tex_grass_elf') : art('tex_forest_blight') || art('tex_grass_blight')) : (t === T.GRASS ? (b < 0.4 ? art('tex_grass_elf') : b < 0.65 ? art('tex_grass_mid') || art('tex_grass_elf') : art('tex_grass_blight')) : null);
+    // ---- pass 3b: painted ground textures from assets (per terrain class, world-anchored, soft-masked) ----
+    const texFor = (t, b) => t === T.DIRT ? art('tex_dirt') : t === T.FOREST ? (b < 0.5 ? art('tex_forest_elf') || art('tex_grass_elf') : art('tex_forest_blight') || art('tex_grass_blight')) : (t === T.GRASS || t === T.ROCK ? (b < 0.42 ? art('tex_grass_elf') : b < 0.62 ? art('tex_grass_mid') || art('tex_grass_elf') : art('tex_grass_blight')) : null);
+    const order = ['tex_grass_elf', 'tex_grass_mid', 'tex_grass_blight', 'tex_forest_elf', 'tex_forest_blight', 'tex_dirt'].map(k => art(k)).filter(Boolean);
     const groups = new Map();
-    for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
+    for (let y = y0 - 1; y < y0 + CH + 1; y++) for (let x = x0 - 1; x < x0 + CH + 1; x++) {
       if (!m.inBounds(x, y)) continue; const i = m.idx(x, y); const tex = texFor(m.terrain[i], m.biome[i]); if (!tex) continue;
-      let pth = groups.get(tex); if (!pth) { pth = new Path2D(); groups.set(tex, pth); } diamond(pth, x, y, 1.2);
+      let pth = groups.get(tex); if (!pth) { pth = new Path2D(); groups.set(tex, pth); } diamond(pth, x, y, 2.5);
     }
-    for (const [tex, pth] of groups) {
-      ctx.save(); ctx.clip(pth); ctx.globalAlpha = 0.85; const pat = ctx.createPattern(tex, 'repeat'); ctx.fillStyle = pat;
-      ctx.translate(ox - (x0 - y0) * HW, oy - (x0 + y0) * HH); const sc = 256 / tex.width; ctx.scale(sc, sc);
-      ctx.fillRect((-(ox - (x0 - y0) * HW) - 10) / sc, (-(oy - (x0 + y0) * HH) - 10) / sc, (w + 20) / sc, (h + 20) / sc); ctx.restore();
+    if (groups.size) {
+      const TEXW = 384;                                   // world px per texture repeat (= 6 tiles)
+      let first = true;
+      for (const tex of order) {
+        const pth = groups.get(tex); if (!pth) continue;
+        const layer = makeCanvas(w, h); const lx = layer.getContext('2d');
+        lx.save(); lx.translate(ox - (x0 - y0) * HW, oy - (x0 + y0) * HH); const sc = TEXW / tex.width; lx.scale(sc, sc);
+        lx.fillStyle = lx.createPattern(tex, 'repeat'); lx.fillRect((-(ox - (x0 - y0) * HW) - 10) / sc, (-(oy - (x0 + y0) * HH) - 10) / sc, (w + 20) / sc, (h + 20) / sc); lx.restore();
+        if (!first) { // soft mask so classes blend into each other
+          const mask = makeCanvas(w, h); const mx = mask.getContext('2d'); mx.filter = 'blur(7px)'; mx.fillStyle = '#000'; mx.fill(pth);
+          lx.globalCompositeOperation = 'destination-in'; lx.drawImage(mask, 0, 0);
+        } else { lx.globalCompositeOperation = 'destination-in'; lx.fill(landPath); }
+        ctx.drawImage(layer, 0, 0); first = false;
+      }
+      // keep the rolling-hill light and biome colour drift from the colour field
+      ctx.save(); ctx.clip(landPath); ctx.globalCompositeOperation = 'soft-light'; ctx.globalAlpha = 0.55; ctx.filter = 'blur(4px)'; ctx.drawImage(base, 0, 0); ctx.restore();
+      ctx.save(); ctx.clip(landPath); ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.25; ctx.filter = 'blur(6px)'; ctx.drawImage(base, 0, 0); ctx.restore();
     }
     // ---- pass 4: water ----
     const wv = makeCanvas(w, h); const wctx = wv.getContext('2d');
@@ -191,14 +206,16 @@ export class Renderer {
       anyAo = true; const [ax, ay] = P(x, y); actx.fillStyle = 'rgba(10,20,5,0.45)'; actx.beginPath(); actx.ellipse(ax, ay + HH + 2, HW * 0.7, HH * 0.7, 0, 0, 7); actx.fill();
     }
     if (anyAo) { ctx.save(); ctx.filter = 'blur(6px)'; ctx.drawImage(ao, 0, 0); ctx.restore(); }
+    ctx.restore();   // end chunk clip
     // ---- pass 6: ground props ----
     for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
       if (!m.inBounds(x, y)) continue;
       const i = m.idx(x, y), t = m.terrain[i], b = m.biome[i];
       const [ax, ay] = P(x, y); const cxp = ax, cyp = ay + HH;
       const rp = () => [cxp + (rng.next() - 0.5) * HW * 1.5, cyp + (rng.next() - 0.5) * HH * 1.5];
+      const painted = groups.size > 0;
       if (t === T.GRASS) {
-        const n = 3 + (m.variant[i] % 4);
+        const n = painted ? (m.variant[i] % 2) : 3 + (m.variant[i] % 4);
         for (let k = 0; k < n; k++) {
           const [px, py] = rp();
           if (b < 0.45) {
@@ -224,11 +241,11 @@ export class Renderer {
         else if (r < 0.17) pebbles(ctx, cxp, cyp, rng, b < 0.5 ? '#b8b0a0' : '#6a645a');
       } else if (t === T.FOREST) {
         // leaf litter + ferns / roots
-        for (let k = 0; k < 5; k++) { const [px, py] = rp(); ctx.fillStyle = b < 0.35 ? rgba(['#d9b857', '#e8c86a', '#b88a3a'][k % 3], 0.6) : b < 0.62 ? rgba(['#8a6a30', '#6a7a30', '#a08040'][k % 3], 0.55) : rgba('#2a2420', 0.6); ctx.beginPath(); ctx.ellipse(px, py, 2, 1, rng.next() * 3, 0, 7); ctx.fill(); }
+        for (let k = 0; k < (painted ? 0 : 5); k++) { const [px, py] = rp(); ctx.fillStyle = b < 0.35 ? rgba(['#d9b857', '#e8c86a', '#b88a3a'][k % 3], 0.6) : b < 0.62 ? rgba(['#8a6a30', '#6a7a30', '#a08040'][k % 3], 0.55) : rgba('#2a2420', 0.6); ctx.beginPath(); ctx.ellipse(px, py, 2, 1, rng.next() * 3, 0, 7); ctx.fill(); }
         if (b < 0.62 && rng.next() < 0.35) fern(ctx, cxp + rng.range(-14, 14), cyp + rng.range(-6, 6), rng, b < 0.35 ? '#7fbf55' : '#4f8a3a');
         if (b >= 0.62 && rng.next() < 0.2) { ctx.strokeStyle = 'rgba(220,220,230,0.35)'; ctx.lineWidth = 0.6; const [px, py] = rp(); for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + rng.range(-8, 8), py + rng.range(-6, 6)); ctx.stroke(); } }
       } else if (t === T.DIRT) {
-        for (let k = 0; k < 4; k++) { const [px, py] = rp(); ctx.fillStyle = rgba(rng.next() < 0.5 ? '#5a4a30' : '#b0a080', 0.5); ctx.beginPath(); ctx.ellipse(px, py, 1.6, 1, 0, 0, 7); ctx.fill(); }
+        for (let k = 0; k < (painted ? 0 : 4); k++) { const [px, py] = rp(); ctx.fillStyle = rgba(rng.next() < 0.5 ? '#5a4a30' : '#b0a080', 0.5); ctx.beginPath(); ctx.ellipse(px, py, 1.6, 1, 0, 0, 7); ctx.fill(); }
         if (rng.next() < 0.3) { ctx.strokeStyle = 'rgba(60,45,25,0.35)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cxp - 14, cyp + 4); ctx.quadraticCurveTo(cxp, cyp - 2, cxp + 16, cyp - 6); ctx.stroke(); }
         if (rng.next() < 0.25) tuft(ctx, cxp + rng.range(-12, 12), cyp + rng.range(-5, 5), rng, '#9aa860', '#5a6a30', 3.5);
       } else if (t === T.ROCK) this.drawRock(ctx, cxp, cyp, b, rng);
@@ -263,11 +280,14 @@ export class Renderer {
   }
   cloudPattern() {
     if (this._cloud) return this._cloud;
-    const c = makeCanvas(512, 512), x = c.getContext('2d'), rng = new RNG(3);
-    x.fillStyle = '#fff'; x.fillRect(0, 0, 512, 512);
+    // render on a 3x3 wrapped canvas so the blur has no edge falloff, then crop the centre tile (seamless)
+    const N = 512, big = makeCanvas(N * 3, N * 3), x = big.getContext('2d'), rng = new RNG(3);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, N * 3, N * 3);
     x.filter = 'blur(28px)';
-    for (let i = 0; i < 9; i++) { x.fillStyle = 'rgba(0,0,0,0.75)'; const px = rng.next() * 512, py = rng.next() * 512, r = 60 + rng.next() * 80; for (const [dx, dy] of [[0, 0], [512, 0], [-512, 0], [0, 512], [0, -512]]) { x.beginPath(); x.ellipse(px + dx, py + dy, r * 1.4, r, rng.next(), 0, 7); x.fill(); } }
+    const blobs = []; for (let i = 0; i < 9; i++) blobs.push([rng.next() * N, rng.next() * N, 60 + rng.next() * 80, rng.next()]);
+    for (let ty = 0; ty < 3; ty++) for (let tx = 0; tx < 3; tx++) for (const [px, py, r, a] of blobs) { x.fillStyle = 'rgba(0,0,0,0.75)'; x.beginPath(); x.ellipse(px + tx * N, py + ty * N, r * 1.4, r, a, 0, 7); x.fill(); }
     x.filter = 'none';
+    const c = makeCanvas(N, N); c.getContext('2d').drawImage(big, N, N, N, N, 0, 0, N, N);
     this._cloud = c; return c;
   }
 

@@ -27,9 +27,16 @@
     "b_orcs_stable.webp",
     "b_orcs_tc.webp",
     "b_orcs_tower.webp",
+    "menu_bg.webp",
     "node_berry.webp",
     "node_gold.webp",
     "node_stone.webp",
+    "tex_dirt.webp",
+    "tex_forest_blight.webp",
+    "tex_forest_elf.webp",
+    "tex_grass_blight.webp",
+    "tex_grass_elf.webp",
+    "tex_grass_mid.webp",
     "tree_blight_1.webp",
     "tree_blight_2.webp",
     "tree_mallorn_1.webp",
@@ -220,6 +227,34 @@
     "keep": true
   },
   "tree_oak_3": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_grass_elf": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_grass_mid": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_grass_blight": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_dirt": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_forest_elf": {
+    "scale": 1,
+    "keep": true
+  },
+  "tex_forest_blight": {
+    "scale": 1,
+    "keep": true
+  },
+  "menu_bg": {
     "scale": 1,
     "keep": true
   }
