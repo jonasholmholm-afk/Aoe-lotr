@@ -620,7 +620,7 @@ export function nodeSprite(kind, variant) {
   return cached(key, NODE_W * 1.5, NODE_H * 1.5, (ctx) => {
     ctx.scale(1.5, 1.5); ctx.translate(NODE_W / 2, NODE_ANCHOR_Y);
     const rng = new RNG(variant * 131 + 7);
-    if (img) { const t = artTuning(`node_${kind}`); const sc = (t.scale ?? 1) * 40 / img.width; const w = img.width * sc, h = img.height * sc; const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 6.5, 0, 0, 7); ctx.fill(); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 6 + (t.dy || 0), w, h); return; }
+    if (img) { const t = artTuning(`node_${kind}`); const sz = [1, 0.92, 1.06, 0.97][variant % 4]; const sc = (t.scale ?? 1.15) * 40 * sz / img.width; const w = img.width * sc, h = img.height * sc; const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15 * sz, 6.5 * sz, 0, 0, 7); ctx.fill(); ctx.save(); if (variant % 2) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2 + (t.dx || 0), -h + 6 + (t.dy || 0), w, h); ctx.restore(); return; }
     const sg = ctx.createRadialGradient(0, 0, 1, 0, 0, 15); sg.addColorStop(0, 'rgba(0,0,0,0.32)'); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(0, 0, 15, 6.5, 0, 0, 7); ctx.fill();
     if (kind === 'gold' || kind === 'stone') {
       const base = kind === 'gold' ? '#8a7a66' : '#8d8f8a';

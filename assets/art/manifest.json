@@ -27,12 +27,19 @@
     "b_orcs_stable.webp",
     "b_orcs_tc.webp",
     "b_orcs_tower.webp",
+    "node_berry.webp",
+    "node_gold.webp",
+    "node_stone.webp",
     "tree_blight_1.webp",
+    "tree_blight_2.webp",
     "tree_mallorn_1.webp",
     "tree_mallorn_2.webp",
+    "tree_mallorn_3.webp",
     "tree_oak_1.webp",
     "tree_oak_2.webp",
-    "tree_pine_1.webp"
+    "tree_oak_3.webp",
+    "tree_pine_1.webp",
+    "tree_pine_2.webp"
   ],
   "b_orcs_tc": {
     "scale": 0.88,
@@ -159,7 +166,7 @@
     "dy": 2
   },
   "b_orcs_farm": {
-    "scale": 1.0,
+    "scale": 1,
     "keep": true,
     "dy": 0
   },
@@ -187,5 +194,33 @@
     "scale": 1.25,
     "keep": true,
     "dy": 4
+  },
+  "node_gold": {
+    "scale": 1,
+    "keep": true
+  },
+  "node_stone": {
+    "scale": 1,
+    "keep": true
+  },
+  "node_berry": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_blight_2": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_pine_2": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_mallorn_3": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_oak_3": {
+    "scale": 1,
+    "keep": true
   }
 }
