@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Realms of Shadow &amp; Leaf</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- ======================= MAIN MENU ======================= -->
+<div id="menu" class="screen">
+  <canvas id="menu-bg"></canvas>
+  <div class="menu-inner">
+    <div class="title-block">
+      <div class="title-eyebrow" data-i18n="eyebrow">Et realtidsstrategispil</div>
+      <h1 class="title">Realms of<br><span>Shadow &amp; Leaf</span></h1>
+      <div class="title-sub" data-i18n="subtitle">Athel Loren mod Mordors horder</div>
+    </div>
+
+    <div class="menu-section">
+      <div class="section-label" data-i18n="chooseFaction">Vælg dit folk</div>
+      <div class="faction-cards">
+        <button class="faction-card elf selected" data-faction="elves">
+          <canvas class="faction-emblem" width="120" height="120"></canvas>
+          <div class="fc-name">Wood Elves</div>
+          <div class="fc-desc" data-i18n="elfDesc">Athel Lorens skovvogtere. Hurtige, dødbringende bueskytter og ældgamle trævæsner.</div>
+          <div class="fc-traits">
+            <span data-i18n="elfTrait1">+10% træhugst</span>
+            <span data-i18n="elfTrait2">Bueskytter +1 rækkevidde</span>
+          </div>
+        </button>
+        <button class="faction-card orc" data-faction="orcs">
+          <canvas class="faction-emblem" width="120" height="120"></canvas>
+          <div class="fc-name">Orcs</div>
+          <div class="fc-desc" data-i18n="orcDesc">Mordors og Greenskins' horder. Billige, brutale krigere, vildsvin og trolde.</div>
+          <div class="fc-traits">
+            <span data-i18n="orcTrait1">Infanteri 20% billigere</span>
+            <span data-i18n="orcTrait2">+5 pop pr. hytte</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="menu-section row">
+      <div class="opt">
+        <div class="section-label" data-i18n="difficulty">Modstander</div>
+        <div class="seg" id="difficulty">
+          <button data-v="easy" data-i18n="easy">Let</button>
+          <button data-v="normal" class="selected" data-i18n="normal">Normal</button>
+          <button data-v="hard" data-i18n="hard">Svær</button>
+        </div>
+      </div>
+      <div class="opt">
+        <div class="section-label" data-i18n="mapSize">Kort</div>
+        <div class="seg" id="mapsize">
+          <button data-v="small" data-i18n="small">Lille</button>
+          <button data-v="medium" class="selected" data-i18n="medium">Mellem</button>
+          <button data-v="large" data-i18n="large">Stort</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-continue" class="big-btn ghost hidden"><span data-i18n="continueGame">Fortsæt kamp</span> <small id="continue-info"></small></button>
+    <button id="btn-start" class="big-btn" data-i18n="start">Drag i krig</button>
+    <div class="menu-footer">
+      <button id="btn-help" class="link-btn" data-i18n="howTo">Sådan spiller du</button>
+      <span class="dot">·</span>
+      <button id="btn-lang" class="link-btn">English</button>
+      <span class="dot">·</span>
+      <span class="version">v1.0</span>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= HELP ======================= -->
+<div id="help" class="screen hidden">
+  <div class="panel-card">
+    <h2 data-i18n="howTo">Sådan spiller du</h2>
+    <div class="help-body" id="help-body"></div>
+    <button class="big-btn small" id="btn-help-close" data-i18n="close">Luk</button>
+  </div>
+</div>
+
+<!-- ======================= HUD ======================= -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="res" id="res-food"><canvas width="22" height="22"></canvas><span>0</span></div>
+    <div class="res" id="res-wood"><canvas width="22" height="22"></canvas><span>0</span></div>
+    <div class="res" id="res-gold"><canvas width="22" height="22"></canvas><span>0</span></div>
+    <div class="res" id="res-stone"><canvas width="22" height="22"></canvas><span>0</span></div>
+    <div class="res pop" id="res-pop"><canvas width="22" height="22"></canvas><span>0/0</span></div>
+    <div class="age"><span id="age-label">I</span><span class="age-name" id="age-name"></span></div>
+    <div class="clock" id="clock">00:00</div>
+    <button id="btn-menu" class="icon-btn" aria-label="Menu">≡</button>
+  </div>
+
+  <div id="minimap-wrap"><canvas id="minimap" width="150" height="150"></canvas></div>
+
+  <div id="side-left">
+    <button class="side-btn" id="btn-idle" title="Ledig arbejder"><canvas width="36" height="36"></canvas><em id="idle-count">0</em></button>
+    <button class="side-btn" id="btn-tc" title="Bycenter"><canvas width="36" height="36"></canvas></button>
+    <button class="side-btn" id="btn-army" title="Hær"><canvas width="36" height="36"></canvas></button>
+    <button class="side-btn toggle" id="btn-box" title="Markér"><canvas width="36" height="36"></canvas></button>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="bottom">
+    <div id="sel-info">
+      <canvas id="sel-portrait" width="72" height="72"></canvas>
+      <div id="sel-text">
+        <div id="sel-name"></div>
+        <div id="sel-stats"></div>
+        <div id="sel-hpbar"><div></div></div>
+      </div>
+    </div>
+    <div id="cmd-grid"></div>
+  </div>
+
+  <div id="place-bar" class="hidden">
+    <span id="place-name"></span>
+    <button id="place-ok" class="big-btn small" data-i18n="place">Byg her</button>
+    <button id="place-cancel" class="big-btn small ghost" data-i18n="cancel">Afbryd</button>
+  </div>
+</div>
+
+<!-- ======================= PAUSE ======================= -->
+<div id="pause" class="screen hidden">
+  <div class="panel-card">
+    <h2 data-i18n="paused">Pause</h2>
+    <div class="pause-stats" id="pause-stats"></div>
+    <div class="btn-col">
+      <button class="big-btn small" id="btn-resume" data-i18n="resume">Fortsæt</button>
+      <button class="big-btn small ghost" id="btn-speed"></button>
+      <button class="big-btn small ghost" id="btn-sound"></button>
+      <button class="big-btn small ghost" id="btn-restart" data-i18n="restart">Genstart kamp</button>
+      <button class="big-btn small ghost" id="btn-quit" data-i18n="quit">Til hovedmenu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= END ======================= -->
+<div id="endscreen" class="screen hidden">
+  <div class="panel-card">
+    <h2 id="end-title"></h2>
+    <p id="end-text"></p>
+    <div class="pause-stats" id="end-stats"></div>
+    <div class="btn-col">
+      <button class="big-btn small" id="btn-end-menu" data-i18n="quit">Til hovedmenu</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

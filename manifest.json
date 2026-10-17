@@ -1,0 +1,16 @@
+{
+  "name": "Realms of Shadow & Leaf",
+  "short_name": "Shadow & Leaf",
+  "description": "Real-time strategy in the world of Athel Loren and Mordor. Wood Elves vs Orcs.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#06110c",
+  "theme_color": "#0b0f0a",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
