@@ -27,8 +27,14 @@
     "b_orcs_stable.webp",
     "b_orcs_tc.webp",
     "b_orcs_tower.webp",
+    "icon_food.webp",
+    "icon_gold.webp",
+    "icon_pop.webp",
+    "icon_stone.webp",
+    "icon_wood.webp",
     "menu_bg.webp",
     "node_berry.webp",
+    "node_carcass.webp",
     "node_gold.webp",
     "node_stone.webp",
     "tex_dirt.webp",
@@ -39,6 +45,7 @@
     "tex_grass_mid.webp",
     "tree_blight_1.webp",
     "tree_blight_2.webp",
+    "tree_blight_3.webp",
     "tree_mallorn_1.webp",
     "tree_mallorn_2.webp",
     "tree_mallorn_3.webp",
@@ -46,7 +53,8 @@
     "tree_oak_2.webp",
     "tree_oak_3.webp",
     "tree_pine_1.webp",
-    "tree_pine_2.webp"
+    "tree_pine_2.webp",
+    "tree_pine_3.webp"
   ],
   "b_orcs_tc": {
     "scale": 0.88,
@@ -255,6 +263,38 @@
     "keep": true
   },
   "menu_bg": {
+    "scale": 1,
+    "keep": true
+  },
+  "icon_food": {
+    "scale": 1,
+    "keep": true
+  },
+  "icon_wood": {
+    "scale": 1,
+    "keep": true
+  },
+  "icon_gold": {
+    "scale": 1,
+    "keep": true
+  },
+  "icon_stone": {
+    "scale": 1,
+    "keep": true
+  },
+  "icon_pop": {
+    "scale": 1,
+    "keep": true
+  },
+  "node_carcass": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_blight_3": {
+    "scale": 1,
+    "keep": true
+  },
+  "tree_pine_3": {
     "scale": 1,
     "keep": true
   }

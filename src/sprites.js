@@ -1335,7 +1335,7 @@ export function drawIcon(canvas, kind, extra) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  const ai = art('icon_' + kind); if (ai) { ctx.drawImage(ai, 0, 0, w, h); return; }
+  const ai = art('icon_' + kind); if (ai) { const sc = Math.min(w / ai.width, h / ai.height) * 0.96; const dw = ai.width * sc, dh = ai.height * sc; ctx.drawImage(ai, (w - dw) / 2, (h - dh) / 2, dw, dh); return; }
   ctx.save(); ctx.translate(w / 2, h / 2); ctx.scale(w / 24, h / 24); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   switch (kind) {
     case 'food': ell(ctx, -1, 1, 7, 5.5, vgrad(ctx, 0, -5, 6, '#e07a4a', '#8a3a20'), OUT, 0.8); line(ctx, 5, -2, 9, -6, '#f0e8d0', 2.4); ell(ctx, 9.5, -6.5, 1.6, 1.6, '#f0e8d0'); break;

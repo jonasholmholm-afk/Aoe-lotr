@@ -41,6 +41,9 @@ python3 -m http.server 8080
 - Procedurel grafik og lyd (ingen billed- eller lydfiler), dansk/engelsk. Malerisk terræn med blomster, svampe, knogler og siv, løvrige træer med lysspil, teksturerede bygninger, dag/nat-cyklus med fakkel- og lanternelys, skyskygger, ildfluer og blodpøle.
 - Autosave (hvert 20. sekund, ved pause og når appen går i baggrunden) og "Fortsæt kamp" fra menuen.
 
+## Malet grafik
+Alle bygninger, træer, ressourcer, jordteksturer, HUD-ikoner og menubaggrunden er AI-malede billeder (54 stk., WebP, ca. 7 MB) i `assets/art/`. Spillet falder tilbage til procedurelt tegnet grafik for alt, der mangler. Se `ART_GUIDE.md` for filnavne, prompts og værktøjet `tools/process-art.mjs`, der fjerner baggrund, trimmer og pakker nye billeder.
+
 ## Struktur
 ```
 index.html / style.css      – skærme og HUD
